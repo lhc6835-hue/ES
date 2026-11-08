@@ -754,7 +754,8 @@ function physics(dt) {
   const { W, ground } = view;
   const ents = world.ents;
   const n = ents.length;
-  for (const e of ents) { e.onGround = false; e.impact = 0; }
+  // (impact is cleared once a frame in step(), so a landing in any substep counts)
+  for (const e of ents) e.onGround = false;
 
   for (const e of ents) {
     if (e.dead || e.held) continue;
@@ -898,6 +899,14 @@ const MATERIAL = { rock: "rock", brick: "rock", cactus: "rock", meteor: "rock", 
   ufo: "metal", ice: "glass", box: "wood", gift: "wood", dino: "heavy", cow: "heavy", dragon: "heavy" };
 const material = (e) => MATERIAL[e.type] ?? (e.size < 12 ? "tap" : "thud");
 
+/** A really big landing: a spray of dirt and a puff of dust, bigger the faster it came down. */
+function crater(e, v) {
+  const n = Math.min(30, (v - 400) / 12), by = e.y + e.r;
+  for (let i = 0; i < n; i++) world.parts.push({ x: e.x + rnd(-e.r, e.r), y: by - 1, vx: rnd(-1, 1) * v * 0.35, vy: -rnd(0.2, 0.6) * v * 0.5, life: rnd(0.4, 0.8), c: pick(["#8a6a52", "#6a4a3a", "#a08070", "#c0b0a0"]), g: 1 });
+  fx(FX.poof, { x: Math.round(e.x), y: Math.round(by), palette: ["#3a3040", "#5a4a48", "#7a6a60", "#a09080", "#c8b8a8"], light: 0 });
+  sfx("heavy", { x: e.x, vol: Math.min(1, v / 700), gap: 0.05 });
+}
+
 function impacts() {
   for (const e of world.ents) {
     if (e.dead || !e.impact) continue;
@@ -911,7 +920,8 @@ function impacts() {
     if (e.type === "balloon" && v > 380) { pop(e); continue; }
     if (e.type === "rock" && v > 180) {
       fx(FX.heavyLanding, { actor: sprite(e.d.ch, e.size).actor, x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.4 });
-      world.shake = Math.max(world.shake, Math.min(6, v / 80));
+      world.shake = Math.max(world.shake, Math.min(12, v / 70));
+      if (v > 450) crater(e, v);
     }
     if (!e.d.creature) continue;
     if (e.type === "dino" && v > 160) {
@@ -921,12 +931,14 @@ function impacts() {
     const safe = e.frozen > 0 ? 220 : 300;
     if (v > safe) {
       const dmg = (v - safe) * (e.frozen > 0 ? 0.35 : 0.12);
+      // the crash shows whether or not they survive it
+      if (dmg > 3) fx(FX.bluntHit, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.4 });
+      if (v > 450) { crater(e, v); world.shake = Math.max(world.shake, Math.min(8, v / 90)); }
       hurt(e, dmg);
       if (e.frozen > 0 && v > 300) { e.frozen = 0; fx(FX.iceShatter, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.5 }); }
       if (!e.dead) {
         e.stun = Math.max(e.stun, Math.min(2, (v - safe) / 200));
         emote(e, pick(["😵", "🤕", "💫"]));
-        if (dmg > 3) fx(FX.bluntHit, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.4 });
       }
     }
   }
@@ -1003,6 +1015,7 @@ export function step(dt) {
   }
 
   const SUB = 3;
+  for (const e of world.ents) e.impact = 0;
   for (let i = 0; i < SUB; i++) physics(dt / SUB);
   impacts();
   for (let i = world.parts.length - 1; i >= 0; i--) {

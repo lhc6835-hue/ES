@@ -3,7 +3,7 @@ import * as poof from "../vendor/pixelfx/fx/spawn/poof.js";
 import * as smallExplosion from "../vendor/pixelfx/fx/explosions/small-explosion.js";
 import * as pow from "../vendor/pixelfx/fx/explosions/cartoon-pow.js";
 import * as lightning from "../vendor/pixelfx/fx/lightning/lightning-strike.js";
-import * as campfire from "../vendor/pixelfx/fx/fire/campfire.js";
+import * as flame from "../vendor/pixelfx/fx/fire/spirit-flame.js";
 import * as burning from "../vendor/pixelfx/fx/status/burning.js";
 import * as frozen from "../vendor/pixelfx/fx/status/frozen.js";
 import * as poisoned from "../vendor/pixelfx/fx/status/poisoned.js";
@@ -19,4 +19,4 @@ import * as soulRise from "../vendor/pixelfx/fx/spawn/soul-rise.js";
 import * as heavyLanding from "../vendor/pixelfx/fx/impacts/heavy-landing.js";
 import * as bloom from "../vendor/pixelfx/fx/nature/healing-bloom.js";
 
-export const FX = { poof, smallExplosion, pow, lightning, campfire, burning, frozen, poisoned, iceShatter, splash, blackHole, implosion, eggHatch, hitSpark, bluntHit, collect, soulRise, heavyLanding, bloom };
+export const FX = { poof, smallExplosion, pow, lightning, flame, burning, frozen, poisoned, iceShatter, splash, blackHole, implosion, eggHatch, hitSpark, bluntHit, collect, soulRise, heavyLanding, bloom };

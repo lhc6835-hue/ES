@@ -3,6 +3,7 @@
 import { view, sprite, fx } from "./render.js";
 import { FX } from "./effects.js";
 
+const FIRE = ["#4a1712", "#8a1f17", "#c9281f", "#f2561d", "#ff8a2a", "#ffc23d", "#ffe26b", "#fff3a6", "#ffffff"];
 export const world = { ents: [], parts: [], t: 0, shake: 0, flash: 0, hitstop: 0 };
 const GRAV = 520;
 
@@ -109,7 +110,7 @@ const INIT = {
   chicken: (e) => (e.lay = rnd(5, 9)),
   balloon: (e) => (e.life = 14),
   hole: (e) => { e.life = 8; e.pull = 1; e.fxs.hole = fx(FX.blackHole, { light: 0.8 }, () => (e.dead ? null : { x: e.x, y: e.y + 72 })); },
-  fire: (e) => { e.life = rnd(10, 14); e.fxs.fire = fx(FX.campfire, { height: 14, light: 0.7 }, () => (e.dead ? null : { x: e.x, y: e.y + e.r })); },
+  fire: (e) => { e.life = rnd(10, 14); e.fxs.fire = fx(FX.flame, { palette: FIRE, light: 0.6 }, () => (e.dead ? null : { x: e.x, y: e.y + e.r })); },
   hero: (e) => (e.cd = 0),
   bee: (e) => (e.cd = rnd(2, 4)),
   skull: (e) => (e.life = 9),
@@ -258,7 +259,12 @@ function shatter(e) {
 
 export function strike(x) {
   const gy = view.ground;
-  fx(FX.lightning, { x: Math.round(x), y: gy, light: 1 });
+  // the effect charges for a while before the bolt lands: skip most of that so a tap strikes now
+  const bolt = fx(FX.lightning, { x: Math.round(x), y: gy, light: 1 });
+  bolt.update(0.62);
+  later(0.14, () => land(x, gy));
+}
+function land(x, gy) {
   world.flash = 0.12;
   world.shake = Math.max(world.shake, 5);
   for (const o of world.ents) {

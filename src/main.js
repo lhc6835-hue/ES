@@ -1,7 +1,7 @@
 // emojibox: the loop, drawing the world, touch and mouse input, the toolbar, and moving between screens.
 import { view, sprite, buildBackdrop, drawBackdrop, resizeFx, updateFx, drawFx, fx, clearFx, THEMES } from "./render.js";
 import { world, DEFS, spawn, step, strike, entityAt, emote, clearWorld, flipOf } from "./game.js";
-import { RATIOS, SIZES, dims, loadMaps, deleteMap, saveMap, restore, newId, drawLogo, wipe, toast, ask, ago } from "./app.js";
+import { RATIOS, SIZES, dims, parseRatio, MAX_RATIO, loadMaps, deleteMap, saveMap, restore, newId, drawLogo, wipe, toast, ask, ago } from "./app.js";
 import { PALETTE, TOOLS } from "./more.js";
 import { drawBlocks, drawGhost, blockTools, saveBlocks, loadBlocks, trimBlocks } from "./blocks.js";
 blockTools(TOOLS);
@@ -492,6 +492,12 @@ function renderMaps() {
 function openForm(mode) {
   const m = mode === "edit" ? app.map : null;
   app.form = { mode, name: m?.name ?? `맵 ${loadMaps().length + 1}`, ratio: m?.ratio ?? "16:9", size: m?.size ?? "m", theme: m?.theme ?? "day" };
+  // a custom ratio (anything that isn't a preset) opens with its numbers filled in
+  const r = parseRatio(app.form.ratio);
+  app.form.customOn = !r.preset;
+  app.form.custom = r.preset ? { w: 5, h: 2 } : { w: r.w, h: r.h };
+  document.getElementById("f-cw").value = app.form.custom.w;
+  document.getElementById("f-ch").value = app.form.custom.h;
   document.getElementById("f-title").textContent = mode === "edit" ? "맵 비율·크기" : "새 맵";
   document.getElementById("f-ok").textContent = mode === "edit" ? "적용하기" : "만들기";
   document.getElementById("f-name").value = app.form.name;
@@ -517,8 +523,20 @@ function renderForm() {
     const k = 16 / Math.max(r.w, r.h);
     sh.style.width = Math.round(r.w * k) + "px";
     sh.style.height = Math.round(r.h * k) + "px";
-    R.appendChild(chip(r.id, f.ratio === r.id, () => { f.ratio = r.id; renderForm(); }, sh));
+    R.appendChild(chip(r.id, !f.customOn && f.ratio === r.id, () => { f.ratio = r.id; f.customOn = false; renderForm(); }, sh));
   }
+  // your own ratio
+  {
+    const { w, h } = f.custom, k = Math.max(1 / MAX_RATIO, Math.min(MAX_RATIO, w / h)), s = 16 / Math.max(k, 1);
+    const sh = document.createElement("span");
+    sh.className = "shape dashed";
+    sh.style.width = Math.round(k * s) + "px";
+    sh.style.height = Math.round(s) + "px";
+    R.appendChild(chip(f.customOn ? `${w}:${h}` : "✏️ 직접", f.customOn, () => { f.customOn = true; f.ratio = `${w}:${h}`; renderForm(); setTimeout(() => document.getElementById("f-cw").focus(), 0); }, sh));
+  }
+  document.getElementById("f-custom").hidden = !f.customOn;
+  const ck = f.custom.w / f.custom.h;
+  document.getElementById("f-cnote").textContent = ck > MAX_RATIO || ck < 1 / MAX_RATIO ? `너무 길어서 ${ck > 1 ? "4:1" : "1:4"}로 맞춰져요` : "가로 : 세로 (1:4 ~ 4:1 사이)";
   for (const z of SIZES) {
     const d = dims(f.ratio, z.id), sm = document.createElement("small");
     sm.textContent = ` ${d.W}×${d.H}`;
@@ -540,6 +558,15 @@ function renderForm() {
   document.getElementById("f-dims").textContent = `${d.W} × ${d.H}`;
 }
 document.getElementById("f-name").addEventListener("input", (ev) => (app.form.name = ev.target.value));
+for (const id of ["f-cw", "f-ch"]) {
+  document.getElementById(id).addEventListener("input", () => {
+    const f = app.form, num = (el) => Math.max(1, Math.min(99, Math.round(+el.value || 1)));
+    f.custom = { w: num(document.getElementById("f-cw")), h: num(document.getElementById("f-ch")) };
+    f.customOn = true;
+    f.ratio = `${f.custom.w}:${f.custom.h}`;
+    renderForm();
+  });
+}
 document.getElementById("f-ok").onclick = () => {
   const f = app.form, d = dims(f.ratio, f.size), name = (f.name || "").trim() || "이름 없는 맵";
   if (f.mode === "edit" && app.map) {

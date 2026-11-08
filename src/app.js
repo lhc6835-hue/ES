@@ -17,9 +17,19 @@ export const SIZES = [
   { id: "l", name: "크게", area: 130000 },
   { id: "xl", name: "아주 크게", area: 220000 },
 ];
+/** The longest a map may be either way: 4 times wider than tall, or 4 times taller than wide. */
+export const MAX_RATIO = 4;
+/** A ratio from a preset id or a custom "w:h" string, kept within 1:4 to 4:1. */
+export function parseRatio(id) {
+  const p = RATIOS.find((q) => q.id === id);
+  if (p) return { w: p.w, h: p.h, preset: true };
+  const m = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec(String(id));
+  const w = m ? +m[1] : 16, h = m ? +m[2] : 9;
+  return { w: w > 0 ? w : 1, h: h > 0 ? h : 1, preset: false };
+}
 export function dims(ratioId, sizeId) {
-  const r = RATIOS.find((q) => q.id === ratioId) ?? RATIOS[0], s = SIZES.find((q) => q.id === sizeId) ?? SIZES[1];
-  const k = r.w / r.h, W = Math.round(Math.sqrt(s.area * k)), H = Math.round(W / k);
+  const r = parseRatio(ratioId), s = SIZES.find((q) => q.id === sizeId) ?? SIZES[1];
+  const k = Math.max(1 / MAX_RATIO, Math.min(MAX_RATIO, r.w / r.h)), W = Math.round(Math.sqrt(s.area * k)), H = Math.round(W / k);
   return { W, H };
 }
 

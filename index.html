@@ -121,6 +121,14 @@
     border-radius: 9px; padding: 8px 11px; cursor: pointer; }
   .chip.on { background: var(--accent); color: var(--deep); }
   .chip .shape { display: inline-block; border: 2px solid currentColor; border-radius: 2px; }
+  .chip .shape.dashed { border-style: dashed; }
+  .custom { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .custom[hidden] { display: none; }
+  .custom input { width: 76px; font: inherit; font-size: 16px; text-align: center; color: var(--ink); background: var(--panel2); border: 3px solid var(--deep);
+    border-radius: 10px; padding: 8px 6px; outline: none; user-select: text; -webkit-user-select: text; }
+  .custom input:focus { border-color: var(--accent); }
+  .custom b { font-size: 18px; font-weight: 400; }
+  .custom small { font-size: 11px; color: var(--dim); }
   .chip small { font-size: 10px; opacity: .7; }
   .preview { display: flex; justify-content: center; align-items: center; height: 170px; background: repeating-conic-gradient(#17121f 0 25%, #1b1526 0 50%) 0 0 / 12px 12px;
     border: 3px solid var(--deep); border-radius: 12px; }
@@ -185,7 +193,14 @@
   <header><button class="btn" id="f-back">← 뒤로</button><h2 id="f-title">새 맵</h2></header>
   <div class="form">
     <label>이름<input id="f-name" maxlength="24" autocomplete="off" /></label>
-    <div class="field"><span>비율</span><div id="f-ratio" class="chips"></div></div>
+    <div class="field"><span>비율</span><div id="f-ratio" class="chips"></div>
+      <div id="f-custom" class="custom" hidden>
+        <input id="f-cw" type="number" inputmode="numeric" min="1" max="99" aria-label="가로" />
+        <b>:</b>
+        <input id="f-ch" type="number" inputmode="numeric" min="1" max="99" aria-label="세로" />
+        <small id="f-cnote"></small>
+      </div>
+    </div>
     <div class="field"><span>크기</span><div id="f-size" class="chips"></div></div>
     <div class="field"><span>테마</span><div id="f-theme" class="chips"></div></div>
     <div class="preview"><div id="f-prev"><span id="f-dims"></span></div></div>

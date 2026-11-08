@@ -126,6 +126,7 @@ function draw() {
   const ents = world.ents.slice().sort((a, b) => (LAYER[a.type] ?? 4) - (LAYER[b.type] ?? 4));
   for (const e of ents) if (e.type === "balloon") drawString(e);
   for (const e of ents) drawEnt(e);
+  for (const q of world.parts) { ctx.fillStyle = q.c; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
   drawFx(ctx, "front");
   for (const e of ents) drawEmote(e);
   // brush cursor

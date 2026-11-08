@@ -3,7 +3,7 @@
 import { view, sprite, fx } from "./render.js";
 import { FX } from "./effects.js";
 
-export const world = { ents: [], t: 0, shake: 0, flash: 0, hitstop: 0 };
+export const world = { ents: [], parts: [], t: 0, shake: 0, flash: 0, hitstop: 0 };
 const GRAV = 520;
 
 // ---------------------------------------------------------------- the emoji
@@ -636,14 +636,20 @@ const TICK = {
 };
 
 function steam(e) {
-  fx(FX.poof, { x: Math.round(e.x), y: Math.round(e.y + e.r), palette: ["#3a4450", "#6a7888", "#a0b0c0", "#d0dce8", "#f0f6ff"], light: 0.2 });
+  fx(FX.poof, { x: Math.round(e.x), y: Math.round(e.y + e.r), palette: ["#4a5460", "#6a7888", "#8a98a8", "#a8b4c0", "#c0ccd8"], light: 0 });
 }
+// a raindrop landing: a few tiny pixels hop up, nothing more
 function splash(e) {
-  world.splashN = (world.splashN ?? 0) + 1;
-  if (world.splashN % 3 === 0) fx(FX.splash, { x: Math.round(e.x), y: Math.round(Math.min(view.ground, e.y + e.r)), light: 0.5 });
+  droplets(e.x, Math.min(view.ground - 1, e.y + e.r), 3, ["#9bdcff", "#58b4ec", "#d8f4ff"]);
+}
+function droplets(x, y, n, cols) {
+  for (let i = 0; i < n; i++) {
+    if (world.parts.length > 300) world.parts.shift();
+    world.parts.push({ x, y, vx: rnd(-35, 35), vy: rnd(-70, -30), life: rnd(0.2, 0.4), c: pick(cols) });
+  }
 }
 function sparkle(e) {
-  if (Math.random() < 0.5) fx(FX.collect, { x: Math.round(e.x), y: Math.round(e.y), palette: ["#08201a", "#17663e", "#3ec466", "#c8ffc4", "#ffffff"], light: 0.6 });
+  droplets(e.x, e.y, 2, ["#7ee88a", "#c8ffc4"]);
 }
 
 const timers = [];
@@ -866,6 +872,11 @@ export function step(dt) {
   const SUB = 3;
   for (let i = 0; i < SUB; i++) physics(dt / SUB);
   impacts();
+  for (let i = world.parts.length - 1; i >= 0; i--) {
+    const q = world.parts[i];
+    q.vy += GRAV * dt; q.x += q.vx * dt; q.y += q.vy * dt;
+    if ((q.life -= dt) <= 0 || q.y > view.ground) world.parts.splice(i, 1);
+  }
 
   // clean up the gone, and their effects
   const ents = world.ents;
@@ -883,6 +894,7 @@ const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 export function clearWorld() {
   for (const e of world.ents) for (const f of Object.values(e.fxs)) f.stop?.();
   world.ents.length = 0;
+  world.parts.length = 0;
   timers.length = 0;
 }
 

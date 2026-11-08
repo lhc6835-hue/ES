@@ -93,7 +93,7 @@ Object.assign(DEFS, {
 
   // things
   nuke: { ch: "☢️", name: "핵폭탄", size: 16, hp: 999, mass: 2, solid: true, metal: true,
-    info: "5초 뒤… 화면 전체를 날려버리는 거대한 버섯구름! 근처 모든 게 사라져요." },
+    info: "5초 뒤… 화면 끝에서 끝까지 전부 날려버려요. 살아남는 건 없어요. 💎 다이아 블럭만 빼고." },
   rocket: { ch: "🚀", name: "로켓", size: 14, hp: 1, mass: 1, solid: true, metal: true,
     info: "잠깐 뒤 불을 뿜으며 날아가요. 어딘가 부딪히면 펑!" },
   ball: { density: 0.3, ch: "🏀", name: "공", size: 13, hp: 999, mass: 0.5, solid: true, roll: true, bounce: 0.85, toy: true,
@@ -612,16 +612,33 @@ Object.assign(TICK, {
       if (e.beep <= 0) { e.beep = Math.max(0.12, e.fuse / 5); sfx("tick", { x: e.x, rate: 1.6, gap: 0 }); emote(e, e.fuse < 1.5 ? "‼️" : "⚠️", 0.3); }
       return;
     }
-    const x = e.x, y = Math.min(view.ground, e.y + e.r);
+    const x = e.x, y = Math.min(view.ground, e.y + e.r), W = view.W, H = view.H, G = view.ground, diag = Math.hypot(W, H);
     e.dead = true;
-    fx(FX.nuke, { x: Math.round(x), y: Math.round(view.ground), light: 1.2 });
-    sfx("boom", { x, gap: 0 }); later(0.15, () => sfx("explode", { x, gap: 0 })); later(0.4, () => sfx("thunder", { x, gap: 0 }));
-    world.flash = 0.6; world.shake = 22; world.hitstop = 0.12;
-    explode({ x, y, r: 8, dead: false }, Math.max(view.W, view.H) * 0.55);
-    for (let i = 0; i < 10; i++) { const f = spawn("fire", x + rnd(-view.W * 0.4, view.W * 0.4), view.ground - 8); if (f) { f.vy = rnd(-200, -60); f.vx = rnd(-120, 120); } }
-    // a lingering rumble and a second flash
-    later(0.5, () => { world.shake = Math.max(world.shake, 14); world.flash = Math.max(world.flash, 0.25); });
-    later(1.2, () => { world.shake = Math.max(world.shake, 8); });
+    // the mushroom cloud, and a white-out
+    fx(FX.nuke, { x: Math.round(x), y: Math.round(G), light: 1.5 });
+    sfx("boom", { x, gap: 0 }); sfx("explode", { x, gap: 0, rate: 0.6 }); later(0.3, () => sfx("thunder", { gap: 0 }));
+    world.flash = 1.2; world.shake = 34; world.hitstop = 0.15;
+    // a blast bigger than the map: everything flies, every block but diamond breaks
+    explode({ x, y, r: 8, dead: false }, diag * 2);
+    // nothing alive survives it
+    for (const o of world.ents) if (!o.dead && o.d.creature) { if (o.type === "ghost") o.dead = true; else { o.hp = -1; hurt(o, 9999); } }
+    // a wall of explosions racing out from the middle to both walls, and bursts all over the sky
+    const step = 34;
+    for (let k = 0; k * step < W; k++) for (const s2 of [-1, 1]) {
+      const ex = x + s2 * k * step;
+      if (ex < 0 || ex > W || (k === 0 && s2 > 0)) continue;
+      later(0.05 + k * 0.07, () => { fx(FX.smallExplosion, { x: Math.round(ex), y: Math.round(G), size: 1.4, light: 1 }); sfx("explode", { x: ex, gap: 0.04, vol: 0.7 }); world.shake = Math.max(world.shake, 18); });
+    }
+    for (let i = 0; i < Math.ceil((W * H) / 9000); i++) {
+      const ax = rnd(0, W), ay = rnd(H * 0.08, G * 0.85);
+      later(0.2 + rnd(0, 1.2), () => { fx(FX.smallExplosion, { x: Math.round(ax), y: Math.round(ay), size: 1.1, light: 1 }); world.flash = Math.max(world.flash, 0.15); });
+    }
+    // fires everywhere, a hail of embers, and the shaking takes a long time to die down
+    for (let i = 0; i < Math.ceil(W / 25); i++) { const f = spawn("fire", rnd(8, W - 8), G - 8); if (f) { f.vy = rnd(-260, -80); f.vx = rnd(-160, 160); } }
+    for (let i = 0; i < 160; i++) part(x + rnd(-10, 10), y - rnd(0, 20), rnd(-1, 1) * W * 1.2, -rnd(0.2, 1) * H * 1.6, rnd(0.8, 1.8), pick(["#fff3a6", "#ffe26b", "#ffc23d", "#ff8a2a", "#f2561d"]), 0.6);
+    later(0.6, () => { world.shake = Math.max(world.shake, 26); world.flash = Math.max(world.flash, 0.5); sfx("boom", { gap: 0, rate: 0.8 }); });
+    later(1.4, () => { world.shake = Math.max(world.shake, 16); });
+    later(2.4, () => { world.shake = Math.max(world.shake, 8); });
   },
   rocket(e, dt) {
     if (e.fuse > 0) {

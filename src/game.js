@@ -4,7 +4,11 @@ import { view, sprite, fx } from "./render.js";
 import { FX } from "./effects.js";
 import { sfx } from "./audio.js";
 
-export const world = { ents: [], parts: [], water: 0, t: 0, shake: 0, flash: 0, hitstop: 0 };
+export const world = { ents: [], parts: [], water: 0, t: 0, shake: 0, flash: 0, hitstop: 0,
+  /** Which way is down (a unit vector); tilting the phone turns it. */
+  grav: { x: 0, y: 1 },
+  /** Player settings that change the rules. */
+  opts: { skulls: true } };
 export const GRAV = 520;
 /** Extra per-entity rules, run every step before the creature thinks (added by more.js). */
 export const PER = [];
@@ -217,8 +221,10 @@ export function die(e, from) {
     sfx("death", { x: e.x, gap: 0.2 });
     const s = sprite(e.d.ch, e.size);
     fx(FX.soulRise, { actor: s.actor, x: Math.round(e.x), y: Math.round(e.y + e.h / 2), height: 30 + e.size, light: 0.6 });
-    const k = spawn("skull", e.x, e.y, { size: Math.round(Math.min(26, 9 + e.size * 0.2)) });
-    if (k) { k.vy = -120; k.vx = rnd(-40, 40); k.va = rnd(-6, 6); }
+    if (world.opts.skulls) {
+      const k = spawn("skull", e.x, e.y, { size: Math.round(Math.min(26, 9 + e.size * 0.2)) });
+      if (k) { k.vy = -120; k.vx = rnd(-40, 40); k.va = rnd(-6, 6); }
+    }
   } else if (e.type === "tree") {
     fx(FX.poof, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), palette: ["#1a1420", "#3a3040", "#5a5060", "#8a8090", "#c0b8c0"], light: 0 });
     if (Math.random() < 0.5) spawn("fire", e.x, e.y);
@@ -772,7 +778,8 @@ function physics(dt) {
       e.vy += (ty - e.y) * 30 * dt - e.vy * 6 * dt;
       g = 0;
     }
-    e.vy += g * dt;
+    e.vx += g * world.grav.x * dt;
+    e.vy += g * world.grav.y * dt;
     // the pool: what's lighter than water floats, what's heavier sinks, everything slows down
     const was = e.sub ?? 0;
     e.sub = 0;
@@ -968,6 +975,8 @@ export function step(dt) {
     // thrown creatures tumble until they land and slow down
     if (e.d.creature) {
       if (!e.tumble && !e.held && !e.carried && !e.d.fly && Math.hypot(e.vx, e.vy) > 260) e.tumble = true;
+      // tipped too far, nobody keeps their feet
+      if (!e.tumble && !e.held && !e.carried && !e.d.fly && world.grav.y < 0.72 && Math.random() < dt * 2) { e.tumble = true; emote(e, pick(["😵", "😲", "🙃"])); }
       if (e.tumble) {
         if (!e.onGround) e.va = e.vx / Math.max(4, e.r) * 0.6;
         if ((e.onGround || e.d.fly || e.sub > 0.4) && Math.hypot(e.vx, e.vy) < 50) { e.tumble = false; e.stun = Math.max(e.stun, 0.4); }
@@ -998,7 +1007,7 @@ export function step(dt) {
   impacts();
   for (let i = world.parts.length - 1; i >= 0; i--) {
     const q = world.parts[i];
-    q.vy += GRAV * (q.g ?? 1) * dt; q.x += q.vx * dt; q.y += q.vy * dt;
+    q.vx += GRAV * (q.g ?? 1) * world.grav.x * dt; q.vy += GRAV * (q.g ?? 1) * world.grav.y * dt; q.x += q.vx * dt; q.y += q.vy * dt;
     if ((q.life -= dt) <= 0 || (q.y > view.ground && (q.g ?? 1) > 0)) world.parts.splice(i, 1);
   }
 

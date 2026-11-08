@@ -7,6 +7,7 @@ import { drawBlocks, drawGhost, blockTools, saveBlocks, loadBlocks, trimBlocks }
 blockTools(TOOLS);
 import { FX } from "./effects.js";
 import { sfx, music, unlock, loopSound, prefs, setPref } from "./audio.js";
+import { tilt, tiltSupported, tiltNeedsTap, enableTilt, disableTilt, updateTilt } from "./tilt.js";
 
 const cv = document.getElementById("game");
 const ctx = cv.getContext("2d");
@@ -140,6 +141,16 @@ function drawWater() {
     ctx.fillRect(x, y, 1, 1);
     if (((x * 7 + Math.floor(t * 3)) % 23) === 0 && ground - y > 4) { ctx.fillStyle = "rgba(220,245,255,0.6)"; ctx.fillRect(x, y + 2, 2, 1); }
   }
+}
+
+// while tilt is on, a little dial in the corner shows which way is down
+function drawGravity() {
+  const x = 9, y = view.H - 8, g = world.grav;
+  ctx.fillStyle = "rgba(20,16,30,.75)";
+  ctx.fillRect(x - 6, y - 6, 13, 13);
+  ctx.fillStyle = "#ffcf4a";
+  for (let i = 0; i <= 5; i++) ctx.fillRect(Math.round(x + g.x * i), Math.round(y + g.y * i), 1, 1);
+  ctx.fillRect(Math.round(x + g.x * 5) - 1, Math.round(y + g.y * 5) - 1, 3, 3);
 }
 
 function drawBeam(u) {
@@ -438,15 +449,12 @@ async function openMenu() {
   const v = await ask("메뉴", app.map ? `"${app.map.name}"` : "", [
     { label: "💾 저장하고 나가기", value: "save", kind: "primary" },
     { label: "저장하지 않고 나가기", value: "leave" },
-    { label: `🎵 음악 ${prefs.music ? "켜짐" : "꺼짐"}`, value: "music" },
-    { label: `🔊 효과음 ${prefs.sfx ? "켜짐" : "꺼짐"}`, value: "sfx" },
-    ...(fsOK() ? [{ label: fsEl() ? "⛶ 전체화면 끄기" : "⛶ 전체화면", value: "fs" }] : []),
+    { label: "⚙️ 설정", value: "settings" },
     { label: "계속 놀기", value: null, kind: "ghost" },
   ]);
   if (v === "save") { if (doSave()) goMaps(); }
   else if (v === "leave") goMaps();
-  else if (v === "music" || v === "sfx") { setPref(v, !prefs[v]); syncAudioButtons(); openMenu(); }
-  else if (v === "fs") toggleFullscreen();
+  else if (v === "settings") openSettings();
   else sfx("back");
 }
 
@@ -615,15 +623,77 @@ document.addEventListener("click", (ev) => {
   const b = ev.target.closest("button, .card");
   if (b && !b.closest("#items") && !b.closest("#tabs") && !["pause", "slow", "menu"].includes(b.id)) sfx("click");
 });
-function syncAudioButtons() {
-  const m = document.getElementById("t-mus"), f = document.getElementById("t-snd");
-  m.classList.toggle("off", !prefs.music);
-  f.classList.toggle("off", !prefs.sfx);
-  f.textContent = prefs.sfx ? "🔊" : "🔇";
+// ---------------------------------------------------------------- settings
+
+const SETTINGS = "emojibox.settings.v1";
+const opts = { tilt: false, skulls: true };
+try { Object.assign(opts, JSON.parse(localStorage.getItem(SETTINGS) || "{}")); } catch {}
+const saveOpts = () => { try { localStorage.setItem(SETTINGS, JSON.stringify(opts)); } catch {} };
+world.opts.skulls = opts.skulls;
+let tiltNote = "";
+
+function settingRows() {
+  return [
+    { ic: "🎵", name: "배경음악", on: prefs.music, flip: () => setPref("music", !prefs.music) },
+    { ic: "🔊", name: "효과음", on: prefs.sfx, flip: () => setPref("sfx", !prefs.sfx) },
+    {
+      ic: "📱", name: "기울여서 중력 바꾸기", on: opts.tilt && tilt.on,
+      sub: tiltNote || "휴대폰을 기울이는 쪽으로 이모지가 떨어져요. 많이 기울이면 다들 미끄러져요.", warn: !!tiltNote,
+      flip: () => setTilt(!(opts.tilt && tilt.on)),
+    },
+    { ic: "💀", name: "죽으면 해골 남기기", on: opts.skulls, sub: "끄면 쓰러진 자리에 아무것도 남지 않아요.",
+      flip: () => { opts.skulls = world.opts.skulls = !opts.skulls; saveOpts(); } },
+    ...(fsOK() ? [{ ic: "⛶", name: "전체화면", on: !!fsEl(), flip: () => { toggleFullscreen(); setTimeout(renderSettings, 300); } }] : []),
+  ];
 }
-document.getElementById("t-mus").onclick = () => { setPref("music", !prefs.music); syncAudioButtons(); toast(prefs.music ? "🎵 음악 켰어요" : "🎵 음악 껐어요"); };
-document.getElementById("t-snd").onclick = () => { setPref("sfx", !prefs.sfx); syncAudioButtons(); toast(prefs.sfx ? "🔊 효과음 켰어요" : "🔇 효과음 껐어요"); };
-syncAudioButtons();
+function renderSettings() {
+  const box = document.getElementById("set-rows");
+  box.innerHTML = "";
+  for (const r of settingRows()) {
+    const row = document.createElement("div");
+    row.className = "set-row";
+    row.innerHTML = `<span class="ic"></span><span class="tx"><b></b>${r.sub ? `<small class="${r.warn ? "warn" : ""}"></small>` : ""}</span><span class="sw${r.on ? " on" : ""}"></span>`;
+    row.querySelector(".ic").textContent = r.ic;
+    row.querySelector("b").textContent = r.name;
+    if (r.sub) row.querySelector("small").textContent = r.sub;
+    row.onclick = async () => { await r.flip(); sfx("tick"); renderSettings(); };
+    box.appendChild(row);
+  }
+}
+function openSettings() {
+  sfx("open");
+  renderSettings();
+  document.getElementById("setpanel").classList.add("on");
+}
+document.getElementById("setpanel").onclick = (ev) => { if (ev.target.id === "setpanel") document.getElementById("setpanel").classList.remove("on"); };
+document.getElementById("set-close").onclick = () => document.getElementById("setpanel").classList.remove("on");
+document.getElementById("t-set").onclick = openSettings;
+
+/** Tilt has to be switched on from a tap (iPhone asks permission); a sensor that never answers means there isn't one. */
+async function setTilt(on) {
+  tiltNote = "";
+  if (!on) { disableTilt(); opts.tilt = false; saveOpts(); return; }
+  const r = await enableTilt();
+  if (r !== "ok") {
+    tiltNote = r === "denied" ? "센서 권한이 거부됐어요. 브라우저 설정에서 동작 및 방향 접근을 허용해 주세요." : "이 기기는 기울기 센서를 지원하지 않아요.";
+    opts.tilt = false; saveOpts();
+    return;
+  }
+  opts.tilt = true; saveOpts();
+  toast("📱 휴대폰을 기울여 보세요");
+  setTimeout(() => {
+    if (tilt.on && !tilt.seen) {
+      disableTilt(); opts.tilt = false; saveOpts();
+      tiltNote = "기울기 센서를 찾지 못했어요. 휴대폰이나 태블릿에서 켜 주세요.";
+      if (document.getElementById("setpanel").classList.contains("on")) renderSettings();
+    }
+  }, 1500);
+}
+// it was on last time: Android can listen straight away, iPhone has to wait for a tap
+if (opts.tilt && tiltSupported()) {
+  if (tiltNeedsTap()) addEventListener("pointerup", () => setTilt(true), { once: true, capture: true });
+  else setTilt(true);
+}
 
 // ---------------------------------------------------------------- go
 
@@ -654,7 +724,9 @@ function frame(now) {
     step(dt);
     updateFx(dt);
   }
+  updateTilt(dt);
   draw();
+  if (playing && tilt.on) drawGravity();
   // the tornado's wind swells while one is around
   const torn = world.ents.filter((e) => e.type === "tornado" && !e.dead).length;
   loopSound("wind", playing && !state.paused ? Math.min(1, torn * 0.8) : 0);
@@ -676,4 +748,4 @@ async function boot() {
 boot();
 
 // for automated checks
-window.__sandbox = { world, spawn, state, select, strike, view, app, play, doSave, goMaps, openForm, loadMaps };
+window.__sandbox = { world, spawn, state, select, strike, view, app, play, doSave, goMaps, openForm, loadMaps, tilt, openSettings };

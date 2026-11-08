@@ -143,6 +143,23 @@
   #modal h3 { margin: 0 0 8px; font-size: 16px; font-weight: 400; }
   #modal p { margin: 0 0 16px; font-size: 12px; color: var(--dim); line-height: 1.6; }
   #modal .row { display: flex; flex-direction: column; gap: 10px; }
+  #setpanel { position: fixed; inset: 0; z-index: 21; display: none; align-items: center; justify-content: center; background: rgba(8,6,14,.6); padding: 16px; }
+  #setpanel.on { display: flex; }
+  #setpanel .box { width: min(100%, 400px); max-height: 100%; overflow-y: auto; background: var(--panel); border: 3px solid var(--deep); border-radius: 14px;
+    box-shadow: 0 6px 0 var(--deep); padding: 18px; display: flex; flex-direction: column; gap: 4px; touch-action: pan-y; }
+  #setpanel h3 { margin: 0 0 8px; font-size: 17px; font-weight: 400; }
+  #setpanel .btn { margin-top: 12px; }
+  .set-row { display: flex; align-items: center; gap: 12px; padding: 11px 2px; border-bottom: 2px solid var(--line); cursor: pointer; }
+  .set-row:last-child { border-bottom: 0; }
+  .set-row .ic { font-size: 22px; width: 30px; text-align: center; }
+  .set-row .tx { flex: 1; min-width: 0; }
+  .set-row .tx b { display: block; font-size: 14px; font-weight: 400; }
+  .set-row .tx small { display: block; font-size: 11px; color: var(--dim); margin-top: 3px; line-height: 1.5; }
+  .set-row .tx small.warn { color: #ff9a8a; }
+  .sw { position: relative; flex: 0 0 auto; width: 50px; height: 28px; border-radius: 14px; background: #3a3050; border: 3px solid var(--deep); transition: background .15s; }
+  .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #c8bce0; transition: left .15s, background .15s; }
+  .sw.on { background: var(--accent); }
+  .sw.on::after { left: 24px; background: var(--deep); }
   #toast { position: fixed; left: 50%; top: 56px; transform: translate(-50%, -20px); opacity: 0; z-index: 30; pointer-events: none;
     font-size: 13px; background: var(--accent); color: var(--deep); border: 3px solid var(--deep); border-radius: 10px; padding: 8px 14px; transition: .2s; }
   #toast.on { opacity: 1; transform: translate(-50%, 0); }
@@ -180,7 +197,7 @@
     <button class="btn big primary" id="go-new">▶ 새 맵 만들기</button>
     <button class="btn big" id="go-maps">📂 내 맵<span id="map-count"></span></button>
   </div>
-  <div class="corner"><button class="ctl" id="t-mus" title="음악">🎵</button><button class="ctl" id="t-snd" title="효과음">🔊</button></div>
+  <div class="corner"><button class="ctl" id="t-set" title="설정">⚙️</button></div>
   <div class="credits">effects · pixelfx &nbsp;|&nbsp; font · Galmuri &nbsp;|&nbsp; music · Open Lo-Fi (CC0) &nbsp;|&nbsp; sfx · Kenney, OpenGameArt (CC0)</div>
 </section>
 
@@ -209,6 +226,11 @@
 </section>
 
 <div id="modal"></div>
+<div id="setpanel"><div class="box">
+  <h3>⚙️ 설정</h3>
+  <div id="set-rows"></div>
+  <button class="btn primary" id="set-close">닫기</button>
+</div></div>
 <div id="toast"></div>
 <canvas id="wipe"></canvas>
 <script type="module" src="src/main.js"></script>

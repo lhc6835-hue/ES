@@ -3,6 +3,8 @@ import { view, sprite, buildBackdrop, drawBackdrop, resizeFx, updateFx, drawFx, 
 import { world, DEFS, spawn, step, strike, entityAt, emote, clearWorld, flipOf } from "./game.js";
 import { RATIOS, SIZES, dims, loadMaps, deleteMap, saveMap, restore, newId, drawLogo, wipe, toast, ask, ago } from "./app.js";
 import { PALETTE, TOOLS } from "./more.js";
+import { drawBlocks, drawGhost, blockTools, saveBlocks, loadBlocks, trimBlocks } from "./blocks.js";
+blockTools(TOOLS);
 import { FX } from "./effects.js";
 import { sfx, music, unlock, loopSound, prefs, setPref } from "./audio.js";
 
@@ -47,6 +49,7 @@ function setWorld(W, H, theme = "day") {
     e.y = Math.max(e.r, Math.min(e.y + (view.ground - oldG), view.ground - e.r));
   }
   world.water = Math.min(world.water, view.ground * 0.75);
+  trimBlocks();
   fit();
 }
 
@@ -196,6 +199,7 @@ function draw(clean = false) {
   ctx.translate(ox, oy);
   drawBackdrop(ctx);
   drawFx(ctx, "back");
+  drawBlocks(ctx);
   const ents = world.ents.slice().sort((a, b) => (LAYER[a.type] ?? 4) - (LAYER[b.type] ?? 4));
   for (const e of ents) if (e.type === "balloon") drawString(e);
   for (const e of ents) if (e.type === "ufo" && e.carry) drawBeam(e);
@@ -205,7 +209,8 @@ function draw(clean = false) {
   drawFx(ctx, "front");
   for (const e of ents) drawEmote(e);
   // brush cursor
-  if (!clean && app.screen === "game" && pointer.inside && !pointer.down && matchMedia("(hover: hover)").matches) {
+  if (!clean && app.screen === "game" && pointer.inside && DEFS[state.sel].block && matchMedia("(hover: hover)").matches) drawGhost(ctx, pointer.x, pointer.y, state.sel);
+  else if (!clean && app.screen === "game" && pointer.inside && !pointer.down && matchMedia("(hover: hover)").matches) {
     const s = sprite(DEFS[state.sel].ch, 9);
     ctx.globalAlpha = 0.5;
     ctx.drawImage(s.canvas, Math.round(pointer.x - s.w / 2), Math.round(pointer.y - s.h / 2));
@@ -252,7 +257,7 @@ cv.addEventListener("pointerdown", (ev) => {
   if (app.screen !== "game") return;
   cv.setPointerCapture(ev.pointerId);
   const [x, y] = toWorld(ev);
-  Object.assign(pointer, { x, y, vx: 0, vy: 0, down: true, inside: true, lastT: performance.now(), brushT: 0 });
+  Object.assign(pointer, { x, y, vx: 0, vy: 0, down: true, inside: true, lastT: performance.now(), brushT: 0, lastCell: null });
   const tool = DEFS[state.sel].tool;
   if (!tool) {
     const e = entityAt(x, y, 2);
@@ -411,6 +416,7 @@ function play(map) {
     show("game");
     setWorld(map.W, map.H, map.theme);
     world.water = map.water ?? 0;
+    loadBlocks(map.blocks);
     restore(map.ents);
     ui.mapname.innerHTML = "";
     const b = document.createElement("b"); b.textContent = "emojibox";
@@ -421,7 +427,7 @@ function play(map) {
 function doSave() {
   if (!app.map) return null;
   draw(true);
-  const rec = saveMap(app.map, cv);
+  const rec = saveMap({ ...app.map, blocks: saveBlocks() }, cv);
   if (rec) { app.map = rec; toast(`💾 "${rec.name}" 저장했어요`); sfx("save"); }
   else toast("저장 공간이 부족해요. 안 쓰는 맵을 지워 주세요.");
   return rec;

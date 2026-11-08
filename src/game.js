@@ -21,6 +21,8 @@ const DRY = new Set(["hole", "water", "snow", "cloud", "storm", "ghost", "tree",
 const DROP = 55;
 /** Called when something eats something (added by more.js). */
 export const ON_EAT = [];
+/** Where placed blocks (blocks.js) join in: collisions, explosions, lightning, fire, the step and clearing. */
+export const HOOK = { collide: null, explode: null, strike: null, fire: null, step: null, clear: null, hole: null };
 
 // ---------------------------------------------------------------- the emoji
 // size: drawn px. mass: heavier pushes lighter. solid: takes part in collisions. roll: spins as it rolls.
@@ -239,6 +241,7 @@ export function explode(b, R = 60) {
   b.dead = true;
   const x = b.x, y = b.y;
   sfx(R > 70 ? "boom" : "explode", { x, gap: 0.03 });
+  HOOK.explode?.(x, y, R);
   fx(FX.smallExplosion, { x: Math.round(x), y: Math.round(Math.min(view.ground, y + b.r)), size: 0.9, light: 1 });
   world.shake = Math.max(world.shake, 9);
   world.flash = 0.08;
@@ -282,6 +285,7 @@ export function strike(x) {
   later(0.14, () => land(x, gy));
 }
 function land(x, gy) {
+  HOOK.strike?.(x);
   sfx("crackle", { x });
   sfx("thunder", { x, gap: 0.1 });
   world.flash = 0.12;
@@ -594,6 +598,7 @@ export const TICK = {
     e.spread = (e.spread ?? 0) - dt;
     if (e.spread > 0) return;
     e.spread = 0.35;
+    HOOK.fire?.(e);
     for (const o of world.ents) {
       if (o.dead || o === e) continue;
       const near = Math.abs(o.x - e.x) < o.r + 7 && o.y + o.r > e.y - 16 && o.y - o.r < e.y + e.r + 2;
@@ -669,6 +674,7 @@ export const TICK = {
     if (e.carry && (e.carry.dead || e.carry.carried !== e)) e.carry = null;
   },
   hole(e, dt) {
+    HOOK.hole?.(e);
     e.life -= dt;
     e.vx *= 0.9; e.vy *= 0.9;
     e.va = -7 * e.pull;
@@ -837,6 +843,9 @@ function physics(dt) {
     }
   }
 
+  // placed blocks
+  if (HOOK.collide) for (const e of ents) if (!e.dead && !e.held) HOOK.collide(e, dt);
+
   // world bounds
   for (const e of ents) {
     if (e.dead || e.held) continue;
@@ -926,6 +935,7 @@ export function step(dt) {
 
   for (let i = timers.length - 1; i >= 0; i--) if ((timers[i].t -= dt) <= 0) { const f = timers[i].f; timers.splice(i, 1); f(); }
 
+  HOOK.step?.(dt);
   for (const e of world.ents) {
     if (e.dead) continue;
     e.t += dt;
@@ -1011,6 +1021,7 @@ export function clearWorld() {
   world.parts.length = 0;
   world.water = 0;
   timers.length = 0;
+  HOOK.clear?.();
 }
 
 export function entityAt(x, y, pad = 4) {

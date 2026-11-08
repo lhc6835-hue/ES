@@ -116,10 +116,11 @@ Object.assign(DEFS, {
 export const PALETTE = [
   { tab: "사람", items: ["person", "baby", "hero", "wizard", "robot", "zombie", "ghost"] },
   { tab: "동물", items: ["dino", "dragon", "chicken", "dog", "cat", "mouse", "frog", "fish", "cow", "penguin", "monkey", "snail", "bee"] },
+  { tab: "블럭", items: ["bBrick", "bWood", "bGlass", "bDiamond", "bHoney", "bBouncy", "bTnt", "bGrass"] },
   { tab: "자연", items: ["fire", "water", "snow", "sprout", "cactus", "mushroom", "ice", "volcano"] },
   { tab: "날씨·재해", items: ["lightning", "cloud", "storm", "tornado", "meteor", "ufo", "hole"] },
   { tab: "음식", items: ["apple", "banana", "cheese", "pizza", "egg"] },
-  { tab: "물건", items: ["bomb", "rocket", "rock", "brick", "box", "ball", "balloon", "gift", "magnet", "poop"] },
+  { tab: "물건", items: ["bomb", "rocket", "rock", "box", "ball", "balloon", "gift", "magnet", "poop"] },
   { tab: "도구", items: ["eraser", "heal", "hammer", "wind"] },
 ];
 

@@ -1,6 +1,7 @@
 // Emoji Sandbox: the loop, drawing the world, touch and mouse input, and the toolbar.
 import { view, sprite, buildBackdrop, drawBackdrop, resizeFx, updateFx, drawFx, fx, clearFx } from "./render.js";
-import { world, DEFS, PALETTE, spawn, step, strike, entityAt, emote, clearWorld, flipOf } from "./game.js";
+import { world, DEFS, spawn, step, strike, entityAt, emote, clearWorld, flipOf } from "./game.js";
+import { PALETTE, TOOLS } from "./more.js";
 import { FX } from "./effects.js";
 
 const cv = document.getElementById("game");
@@ -42,7 +43,7 @@ function resize() {
 
 // ---------------------------------------------------------------- drawing
 
-const LAYER = { hole: 0, tree: 0, sprout: 1, skull: 2, fried: 2, leg: 2, apple: 2, egg: 2, rock: 3, ice: 3, bomb: 3, water: 6, balloon: 5, ghost: 7, bee: 6, hero: 6 };
+const LAYER = { volcano: 0, cloud: 8, storm: 8, tornado: 5, ufo: 7, dragon: 7, meteor: 7, rocket: 6, hole: 0, tree: 0, sprout: 1, skull: 2, fried: 2, leg: 2, apple: 2, egg: 2, rock: 3, ice: 3, bomb: 3, water: 6, balloon: 5, ghost: 7, bee: 6, hero: 6 };
 
 function drawEnt(e) {
   const d = e.d;
@@ -62,6 +63,8 @@ function drawEnt(e) {
   const step = Math.PI / 8;
   let a = Math.round(e.a / step) * step;
   if (e.peck > 0) a = (flip ? 1 : -1) * 0.4;
+  if (e.slide > 0) a = e.face * Math.PI / 2; // belly slide
+  if (e.napping > 0) bob = 1;
   if (e.held && d.creature) a = Math.sin(world.t * 18) * 0.25;
   ctx.save();
   ctx.translate(Math.round(e.x), Math.round(e.y) + bob);
@@ -90,6 +93,17 @@ function glow(e, size) {
   if (fire) ctx.globalCompositeOperation = "lighter";
   ctx.fillStyle = g;
   ctx.fillRect(Math.round(e.x - R), Math.round(e.y - R), Math.ceil(R * 2), Math.ceil(R * 2));
+  ctx.restore();
+}
+
+function drawBeam(u) {
+  const c = u.carry, top = u.y + u.h * 0.3, bot = Math.max(c.y + c.h / 2, top + 4), w0 = u.w * 0.25, w1 = Math.max(c.w * 0.7, w0 + 6);
+  ctx.save();
+  ctx.globalAlpha = 0.28 + 0.08 * Math.sin(world.t * 20);
+  ctx.fillStyle = "#8affb0";
+  ctx.beginPath();
+  ctx.moveTo(u.x - w0, top); ctx.lineTo(u.x + w0, top); ctx.lineTo(u.x + w1, bot); ctx.lineTo(u.x - w1, bot);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -141,6 +155,7 @@ function draw() {
   drawFx(ctx, "back");
   const ents = world.ents.slice().sort((a, b) => (LAYER[a.type] ?? 4) - (LAYER[b.type] ?? 4));
   for (const e of ents) if (e.type === "balloon") drawString(e);
+  for (const e of ents) if (e.type === "ufo" && e.carry) drawBeam(e);
   for (const e of ents) drawEnt(e);
   for (const q of world.parts) { ctx.fillStyle = q.c; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
   drawFx(ctx, "front");
@@ -173,15 +188,7 @@ function toWorld(ev) {
 
 function place(type, x, y) {
   const d = DEFS[type];
-  if (type === "lightning") return strike(x);
-  if (type === "eraser") {
-    const e = entityAt(x, y, 6);
-    if (e) {
-      e.dead = true;
-      fx(FX.poof, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.4 });
-    }
-    return;
-  }
+  if (d.tool) return TOOLS[type]?.(x, y, pointer);
   const brush = !!d.brush;
   const e = spawn(type, x + (brush ? (Math.random() - 0.5) * 6 : 0), Math.min(y, view.ground - 4));
   if (!e) return;

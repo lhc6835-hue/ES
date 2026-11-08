@@ -4,26 +4,32 @@ import { view, sprite, fx } from "./render.js";
 import { FX } from "./effects.js";
 
 export const world = { ents: [], parts: [], t: 0, shake: 0, flash: 0, hitstop: 0 };
-const GRAV = 520;
+export const GRAV = 520;
+/** Extra per-entity rules, run every step before the creature thinks (added by more.js). */
+export const PER = [];
+/** What a lightning bolt does to a type, instead of the usual burn and hurt. */
+export const ZAP = {};
+/** Called when something eats something (added by more.js). */
+export const ON_EAT = [];
 
 // ---------------------------------------------------------------- the emoji
 // size: drawn px. mass: heavier pushes lighter. solid: takes part in collisions. roll: spins as it rolls.
 // left: the emoji's art faces left (flip it to walk right). fly: no gravity. burn: catches fire.
 
 export const DEFS = {
-  person: { ch: "🏃", name: "사람", size: 15, hp: 30, mass: 1, solid: true, left: true, burn: true, creature: true, fearful: true, prey: true,
+  person: { brains: true, ch: "🏃", name: "사람", size: 15, hp: 30, mass: 1, solid: true, left: true, burn: true, creature: true, fearful: true, prey: true,
     info: "땅을 돌아다녀요. 무서운 게 보이면 도망가고, 배고프면 🍎🍗를 주워 먹어요." },
-  dino: { ch: "🦖", name: "공룡", size: 34, hp: 220, mass: 8, solid: true, left: true, creature: true, burn: true,
+  dino: { villain: true, threat: 90, ch: "🦖", name: "공룡", size: 34, hp: 220, mass: 8, solid: true, left: true, creature: true, burn: true,
     info: "크고 무거워요. 사람·닭·좀비를 쫓아가서 한입에 먹고 점점 커져요." },
-  zombie: { ch: "🧟", name: "좀비", size: 15, hp: 25, mass: 1, solid: true, burn: true, creature: true, prey: true, burnHurt: 2,
+  zombie: { villain: true, threat: 90, ch: "🧟", name: "좀비", size: 15, hp: 25, mass: 1, solid: true, burn: true, creature: true, prey: true, burnHurt: 2,
     info: "느릿느릿 사람을 쫓아가요. 물리면 사람도 좀비가 돼요. 불에 약해요." },
   chicken: { ch: "🐔", name: "닭", size: 14, hp: 15, mass: 0.7, solid: true, left: true, burn: true, creature: true, prey: true,
     info: "알을 낳아요. 강아지랑 공룡을 무서워해요. 불이나 번개를 맞으면… 🍗" },
-  dog: { ch: "🐕", name: "강아지", size: 16, hp: 40, mass: 1.2, solid: true, left: true, burn: true, creature: true, prey: true,
+  dog: { brains: true, toyLover: true, ch: "🐕", name: "강아지", size: 16, hp: 40, mass: 1.2, solid: true, left: true, burn: true, creature: true, prey: true,
     info: "사람을 졸졸 따라가요. 닭을 쫓고, 좀비를 보면 짖고 물어요." },
   hero: { ch: "🦸", name: "히어로", size: 16, hp: 140, mass: 1.5, solid: true, fly: true, burn: true, creature: true,
     info: "날아다니며 공룡이랑 좀비를 찾아가 한 방 먹여요." },
-  ghost: { ch: "👻", name: "유령", size: 15, hp: 1, mass: 0.5, fly: true, creature: true,
+  ghost: { threat: 90, ch: "👻", name: "유령", size: 15, hp: 1, mass: 0.5, fly: true, creature: true,
     info: "벽도 물건도 통과해요. 사람한테 다가가 겁을 줘요. 번개에만 사라져요." },
   bee: { ch: "🐝", name: "벌", size: 10, hp: 5, mass: 0.2, fly: true, left: true, burn: true, creature: true,
     info: "나무 주위를 붕붕 날아요. 가끔 근처 생물을 쏘고 도망가요." },
@@ -62,17 +68,12 @@ export const DEFS = {
   skull: { ch: "💀", name: "해골", size: 11, hp: 999, mass: 0.6, solid: true, roll: true, bounce: 0.3 },
 };
 
-export const PALETTE = [
-  { tab: "생물", items: ["person", "dino", "zombie", "chicken", "dog", "hero", "ghost", "bee"] },
-  { tab: "자연", items: ["fire", "water", "sprout", "ice", "lightning", "apple"] },
-  { tab: "물건", items: ["bomb", "rock", "balloon", "hole", "egg", "eraser"] },
-];
 
 // ---------------------------------------------------------------- spawning
 
 let ids = 1;
-const rnd = (a = 0, b = 1) => a + Math.random() * (b - a);
-const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+export const rnd = (a = 0, b = 1) => a + Math.random() * (b - a);
+export const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 
 export function spawn(type, x, y, extra = {}) {
   const d = DEFS[type];
@@ -93,14 +94,14 @@ export function spawn(type, x, y, extra = {}) {
   world.ents.push(e);
   return e;
 }
-function resize(e) {
+export function resize(e) {
   const s = sprite(e.d.ch, e.size);
   e.w = s.w;
   e.h = s.h;
   e.r = Math.max(3, Math.min(s.w, s.h) * 0.48);
 }
 
-const INIT = {
+export const INIT = {
   bomb: (e) => (e.fuse = 3.2),
   egg: (e) => (e.hatch = rnd(9, 13)),
   chick: (e) => (e.grow = rnd(14, 18)),
@@ -126,7 +127,7 @@ export const flipOf = (e) => (e.d.left ? e.face > 0 : e.face < 0);
 
 // ---------------------------------------------------------------- queries
 
-function nearest(e, test, maxD = 1e9) {
+export function nearest(e, test, maxD = 1e9) {
   let best = null, bd = maxD;
   for (const o of world.ents) {
     if (o === e || o.dead || !test(o)) continue;
@@ -135,11 +136,11 @@ function nearest(e, test, maxD = 1e9) {
   }
   return best;
 }
-const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-const touching = (a, b, pad = 2) => dist(a, b) < a.r + b.r + pad;
+export const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+export const touching = (a, b, pad = 2) => dist(a, b) < a.r + b.r + pad;
 const alive = (o) => !o.dead && o.d.creature;
-const isThreatTo = (e) => (o) => {
-  if (o.type === "dino" || o.type === "zombie" || o.type === "ghost") return dist(e, o) < 90;
+export const isThreatTo = (e) => (o) => {
+  if (o.d.threat) return dist(e, o) < o.d.threat && !(o.type === "zombie" && e.type === "zombie");
   if (o.type === "fire") return dist(e, o) < 40;
   if (o.type === "bomb") return o.fuse < 2 && dist(e, o) < 70;
   if (o.type === "hole") return dist(e, o) < 130;
@@ -181,7 +182,7 @@ export function freeze(e, t = 5) {
   e.fxs.frozen = fx(FX.frozen, { actor: s.actor, light: 0.6 }, () => (e.dead || e.frozen <= 0 ? null : feet(e)));
 }
 
-function transform(e, type) {
+export function transform(e, type) {
   if (e.dead) return null;
   e.dead = true;
   const n = spawn(type, e.x, e.y);
@@ -210,7 +211,7 @@ export function die(e, from) {
   }
 }
 
-function pop(e) {
+export function pop(e) {
   if (e.dead) return;
   e.dead = true;
   if (e.carry) { e.carry.carried = null; e.carry.tumble = true; emote(e.carry, "😵"); }
@@ -246,7 +247,7 @@ export function explode(b, R = 60) {
   }
 }
 
-function shatter(e) {
+export function shatter(e) {
   if (e.dead) return;
   e.dead = true;
   fx(FX.iceShatter, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.6 });
@@ -268,6 +269,7 @@ function land(x, gy) {
   world.shake = Math.max(world.shake, 5);
   for (const o of world.ents) {
     if (o.dead || Math.abs(o.x - x) > o.r + 7) continue;
+    if (ZAP[o.type]) { ZAP[o.type](o); continue; }
     if (o.type === "ghost") { die(o); continue; }
     if (o.type === "bomb") { o.fuse = 0.05; continue; }
     if (o.type === "sprout") { grow(o); continue; }
@@ -281,22 +283,23 @@ function land(x, gy) {
   if (Math.random() < 0.5) spawn("fire", x, gy - 6);
 }
 
-function grow(s) {
+export function grow(s) {
   const t = transform(s, "tree");
   if (t) fx(FX.bloom, { x: Math.round(t.x), y: Math.round(t.y + t.h / 2), light: 0.8 });
 }
 
-function eat(e, food) {
+export function eat(e, food) {
   if (food.dead) return;
   food.dead = true;
   e.hp = Math.min(e.d.hp * (e.type === "dino" ? 3 : 1.5), e.hp + (food.d.food ?? 20));
   fx(FX.collect, { x: Math.round(food.x), y: Math.round(food.y), light: 0.6 });
   emote(e, pick(["😋", "❤️"]));
+  for (const f of ON_EAT) f(e, food);
 }
 
 // ---------------------------------------------------------------- behaviour
 
-function walk(e, dt, speed, accel = 10) {
+export function walk(e, dt, speed, accel = 10) {
   // only feet on something can push
   if (!e.onGround || e.tumble) return;
   e.vx += (speed - e.vx) * Math.min(1, accel * dt);
@@ -307,14 +310,14 @@ function walk(e, dt, speed, accel = 10) {
     if (e.stuck > 0.25) { e.vy = -Math.min(240, 150 + e.r * 3); e.stuck = 0; }
   } else e.stuck = 0;
 }
-function fly(e, dt, tx, ty, speed, k = 3) {
+export function fly(e, dt, tx, ty, speed, k = 3) {
   const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) || 1;
   const s = Math.min(speed, d * 3);
   e.vx += ((dx / d) * s - e.vx) * Math.min(1, k * dt);
   e.vy += ((dy / d) * s - e.vy) * Math.min(1, k * dt);
   if (Math.abs(e.vx) > 5) e.face = Math.sign(e.vx);
 }
-function wander(e, dt, speed) {
+export function wander(e, dt, speed) {
   e.think -= dt;
   if (e.think <= 0) {
     e.think = rnd(1.5, 4);
@@ -325,7 +328,7 @@ function wander(e, dt, speed) {
   if (e.x > view.W - 20) e.want = -Math.abs(e.want);
   walk(e, dt, e.want);
 }
-function flee(e, dt, from, speed) {
+export function flee(e, dt, from, speed) {
   let dir = Math.sign(e.x - from.x) || 1;
   // cornered: try to run past
   if ((dir < 0 && e.x < 14) || (dir > 0 && e.x > view.W - 14)) dir = -dir;
@@ -334,7 +337,7 @@ function flee(e, dt, from, speed) {
   walk(e, dt, dir * speed, 12);
 }
 
-const AI = {
+export const AI = {
   person(e, dt) {
     if (e.burn > 0) {
       e.think -= dt;
@@ -379,7 +382,7 @@ const AI = {
   },
 
   zombie(e, dt) {
-    const prey = nearest(e, (o) => (o.type === "person" || o.type === "dog") && !o.infect && !o.held, 260);
+    const prey = nearest(e, (o) => o.d.brains && !o.infect && !o.held && !o.carried, 260);
     if (e.burn > 0 && Math.random() < dt * 2) emote(e, "😫", 0.5);
     if (prey) {
       walk(e, dt, Math.sign(prey.x - e.x) * (16 + 6 * Math.sin(e.t * 5)), 6);
@@ -473,7 +476,7 @@ const AI = {
 
   hero(e, dt) {
     e.cd -= dt;
-    const foe = nearest(e, (o) => (o.type === "dino" || o.type === "zombie") && !o.held);
+    const foe = nearest(e, (o) => o.d.villain && !o.held);
     if (foe) {
       const side = Math.sign(e.x - foe.x) || 1;
       fly(e, dt, foe.x + side * (foe.r + e.r - 2), foe.y - foe.r * 0.3, 150, 4);
@@ -538,7 +541,7 @@ const AI = {
 };
 
 // things, not creatures
-const TICK = {
+export const TICK = {
   fire(e, dt) {
     e.life -= dt;
     if (e.life <= 0) { e.dead = true; fx(FX.poof, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), palette: SMOKE, light: 0 }); return; }
@@ -650,30 +653,30 @@ const TICK = {
   },
 };
 
-function steam(e) {
+export function steam(e) {
   fx(FX.poof, { x: Math.round(e.x), y: Math.round(e.y + e.r), palette: ["#4a5460", "#6a7888", "#8a98a8", "#a8b4c0", "#c0ccd8"], light: 0 });
 }
 // a raindrop landing: a few tiny pixels hop up, nothing more
-function splash(e) {
+export function splash(e) {
   droplets(e.x, Math.min(view.ground - 1, e.y + e.r), 3, ["#9bdcff", "#58b4ec", "#d8f4ff"]);
 }
 const SMOKE = ["#3a3440", "#5a5060", "#7a7080", "#9a90a0", "#b8b0c0"];
-function part(x, y, vx, vy, life, c, g = 1) {
+export function part(x, y, vx, vy, life, c, g = 1) {
   if (world.parts.length > 300) world.parts.shift();
   world.parts.push({ x, y, vx, vy, life, c, g });
 }
-function droplets(x, y, n, cols) {
+export function droplets(x, y, n, cols) {
   for (let i = 0; i < n; i++) {
     if (world.parts.length > 300) world.parts.shift();
     world.parts.push({ x, y, vx: rnd(-35, 35), vy: rnd(-70, -30), life: rnd(0.2, 0.4), c: pick(cols) });
   }
 }
-function sparkle(e) {
+export function sparkle(e) {
   droplets(e.x, e.y, 2, ["#7ee88a", "#c8ffc4"]);
 }
 
 const timers = [];
-function later(t, f) { timers.push({ t, f }); }
+export function later(t, f) { timers.push({ t, f }); }
 
 // ---------------------------------------------------------------- physics
 
@@ -690,7 +693,8 @@ function physics(dt) {
     let g = d.fly && !e.tumble && !(e.frozen > 0) && !(e.stun > 0 && e.type !== "bee") ? 0 : GRAV;
     if (d.fly && e.type === "ghost") g = 0;
     if (e.type === "balloon") g = -110 - (e.carry ? 0 : 60);
-    if (e.type === "hole") g = 0;
+    if (e.type === "hole" || e.nograv) g = 0;
+    g *= d.g ?? 1;
     if (e.carried) {
       // dangling under a balloon: rise with it
       const b = e.carried;
@@ -883,9 +887,11 @@ export function step(dt) {
       }
     }
 
+    for (const f of PER) f(e, dt);
+    if (e.dead) continue;
     const busy = e.held || e.frozen > 0 || e.stun > 0 || e.tumble || e.infect || e.carried;
     if (e.d.creature && !busy) AI[e.type]?.(e, dt);
-    else if (e.d.creature && e.carried && Math.random() < dt * 0.4) emote(e, pick(["😲", "🎈", "😆"]));
+    else if (e.d.creature && e.carried && Math.random() < dt * 0.4) emote(e, pick(e.carried.type === "balloon" ? ["😲", "🎈", "😆"] : ["😱", "😨", "🆘"]));
     TICK[e.type]?.(e, dt);
   }
 
@@ -921,7 +927,7 @@ export function clearWorld() {
 export function entityAt(x, y, pad = 4) {
   let best = null, bd = 1e9;
   for (const e of world.ents) {
-    if (e.dead || e.type === "water") continue;
+    if (e.dead || e.type === "water" || e.type === "snow") continue;
     const d = Math.hypot(e.x - x, e.y - y) - e.r;
     if (d < pad && d < bd) { bd = d; best = e; }
   }

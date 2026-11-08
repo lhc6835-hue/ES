@@ -1,0 +1,205 @@
+{
+"place": [
+"place0.mp3",
+"place1.mp3",
+"place2.mp3"
+],
+"grab": [
+"grab0.mp3",
+"grab1.mp3"
+],
+"throw": [
+"throw0.mp3",
+"throw1.mp3",
+"throw2.mp3"
+],
+"click": [
+"click0.mp3"
+],
+"tick": [
+"tick0.mp3"
+],
+"open": [
+"open0.mp3"
+],
+"back": [
+"back0.mp3"
+],
+"save": [
+"save0.mp3"
+],
+"delete": [
+"delete0.mp3"
+],
+"whoosh": [
+"whoosh0.mp3"
+],
+"thud": [
+"thud0.mp3",
+"thud1.mp3",
+"thud2.mp3",
+"thud3.mp3"
+],
+"tap": [
+"tap0.mp3",
+"tap1.mp3",
+"tap2.mp3",
+"tap3.mp3"
+],
+"rock": [
+"rock0.mp3",
+"rock1.mp3",
+"rock2.mp3"
+],
+"metal": [
+"metal0.mp3",
+"metal1.mp3",
+"metal2.mp3",
+"metal3.mp3"
+],
+"glass": [
+"glass0.mp3",
+"glass1.mp3",
+"glass2.mp3"
+],
+"shatter": [
+"shatter0.mp3",
+"shatter1.mp3",
+"shatter2.mp3"
+],
+"wood": [
+"wood0.mp3",
+"wood1.mp3",
+"wood2.mp3"
+],
+"punch": [
+"punch0.mp3",
+"punch1.mp3",
+"punch2.mp3",
+"punch3.mp3"
+],
+"smack": [
+"smack0.mp3",
+"smack1.mp3",
+"smack2.mp3"
+],
+"heavy": [
+"heavy0.mp3",
+"heavy1.mp3",
+"heavy2.mp3"
+],
+"chomp": [
+"chomp0.mp3",
+"chomp1.mp3",
+"chomp2.mp3"
+],
+"burp": [
+"burp0.mp3"
+],
+"roar": [
+"roar0.mp3",
+"roar1.mp3",
+"roar2.mp3",
+"roar3.mp3"
+],
+"growl": [
+"growl0.mp3",
+"growl1.mp3",
+"growl2.mp3"
+],
+"zombie": [
+"zombie0.mp3",
+"zombie1.mp3",
+"zombie2.mp3",
+"zombie3.mp3",
+"zombie4.mp3",
+"zombie5.mp3"
+],
+"explode": [
+"explode0.mp3",
+"explode1.mp3",
+"explode2.mp3"
+],
+"boom": [
+"boom0.mp3"
+],
+"thunder": [
+"thunder0.mp3"
+],
+"crackle": [
+"crackle0.mp3",
+"crackle1.mp3"
+],
+"shock": [
+"shock0.mp3"
+],
+"laser": [
+"laser0.mp3",
+"laser1.mp3",
+"laser2.mp3"
+],
+"fire": [
+"fire0.mp3",
+"fire1.mp3"
+],
+"breath": [
+"breath0.mp3"
+],
+"rocket": [
+"rocket0.mp3"
+],
+"splash": [
+"splash0.mp3"
+],
+"drip": [
+"drip0.mp3",
+"drip1.mp3",
+"drip2.mp3"
+],
+"squish": [
+"squish0.mp3",
+"squish1.mp3",
+"squish2.mp3",
+"squish3.mp3"
+],
+"magic": [
+"magic0.mp3"
+],
+"portal": [
+"portal0.mp3",
+"portal1.mp3"
+],
+"beam": [
+"beam0.mp3",
+"beam1.mp3"
+],
+"coin": [
+"coin0.mp3"
+],
+"rise": [
+"rise0.mp3",
+"rise1.mp3"
+],
+"heal": [
+"heal0.mp3"
+],
+"death": [
+"death0.mp3"
+],
+"pop": [
+"pop0.mp3",
+"pop1.mp3"
+],
+"pluck": [
+"pluck0.mp3",
+"pluck1.mp3"
+],
+"erase": [
+"erase0.mp3",
+"erase1.mp3",
+"erase2.mp3"
+],
+"wind": [
+"wind0.mp3"
+]
+}

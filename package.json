@@ -1,0 +1,14 @@
+{
+  "name": "emoji-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Emoji Sandbox: place emoji that walk, chase, burn, freeze, explode and bounce off each other.",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "dev": "npx --yes serve ."
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10"
+  }
+}

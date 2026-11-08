@@ -2,7 +2,8 @@
 
 이모지를 꺼내서 놓으면 저마다 성격대로 움직이고 서로 부딪치는 샌드박스 게임.
 
-- **플레이**: `npm install && npm run build` 후 `dist/index.html`을 브라우저로 열기 (파일 하나로 동작)
+- **바로 플레이**: https://lhc6835-hue.github.io/ES/
+- **직접 빌드**: `npm install && npm run build` 후 `dist/index.html`을 브라우저로 열기 (파일 하나로 동작)
 - **개발**: `npm run dev`로 루트를 띄우고 `index.html` 열기
 
 ## 조작

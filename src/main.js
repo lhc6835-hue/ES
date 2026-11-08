@@ -440,11 +440,13 @@ async function openMenu() {
     { label: "저장하지 않고 나가기", value: "leave" },
     { label: `🎵 음악 ${prefs.music ? "켜짐" : "꺼짐"}`, value: "music" },
     { label: `🔊 효과음 ${prefs.sfx ? "켜짐" : "꺼짐"}`, value: "sfx" },
+    ...(fsOK() ? [{ label: fsEl() ? "⛶ 전체화면 끄기" : "⛶ 전체화면", value: "fs" }] : []),
     { label: "계속 놀기", value: null, kind: "ghost" },
   ]);
   if (v === "save") { if (doSave()) goMaps(); }
   else if (v === "leave") goMaps();
   else if (v === "music" || v === "sfx") { setPref(v, !prefs[v]); syncAudioButtons(); openMenu(); }
+  else if (v === "fs") toggleFullscreen();
   else sfx("back");
 }
 
@@ -587,6 +589,24 @@ document.getElementById("menu").onclick = openMenu;
 document.getElementById("save").onclick = doSave;
 document.getElementById("settings").onclick = () => openForm("edit");
 ui.mapname = document.getElementById("mapname");
+
+// fullscreen: the first click asks for it (browsers only allow it from a click); later, from the menu
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+const fsOK = () => !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen) && (document.fullscreenEnabled ?? document.webkitFullscreenEnabled ?? true);
+function enterFullscreen() {
+  if (fsEl() || !fsOK()) return;
+  const el = document.documentElement;
+  try {
+    const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el, { navigationUI: "hide" });
+    r?.catch?.(() => {});
+  } catch {}
+}
+function toggleFullscreen() {
+  if (fsEl()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  else enterFullscreen();
+}
+addEventListener("pointerup", enterFullscreen, { once: true, capture: true });
+for (const ev of ["fullscreenchange", "webkitfullscreenchange"]) document.addEventListener(ev, () => setTimeout(onResize, 50));
 
 // sound needs a tap first; then every menu button clicks
 addEventListener("pointerdown", unlock, { capture: true });

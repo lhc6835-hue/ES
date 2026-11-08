@@ -79,7 +79,7 @@ Object.assign(DEFS, {
     info: "비를 뿌리다가 가끔 아래로 번개를 내리쳐요." },
   tornado: { ch: "🌪️", name: "회오리", size: 46, hp: 999, mass: 2, sensor: true,
     info: "거대한 회오리가 휩쓸고 다녀요. 닿는 건 다 빨아올려 빙글빙글 돌리다가 멀리 던져버려요. 물도 빨아들여요." },
-  meteor: { ch: "☄️", name: "운석", size: 16, hp: 999, mass: 6, solid: true,
+  meteor: { ch: "☄️", name: "운석", size: 16, hp: 999, mass: 6, solid: true, bounce: 0,
     info: "하늘에서 비스듬히 날아와 쾅! 불바다를 만들어요." },
 
   // food
@@ -142,11 +142,16 @@ Object.assign(INIT, {
   storm: (e) => { e.y = Math.min(e.y, view.ground - 70); e.vx = pick([-14, 14]); e.cd = rnd(2, 4); },
   tornado: (e) => { e.life = 12; e.dir = pick([-1, 1]); world.shake = Math.max(world.shake, 6); },
   meteor: (e) => {
-    // it comes in from the sky, aimed where you tapped
-    const dir = e.x < view.W / 2 ? -1 : 1, tx = e.x, ty = view.ground;
-    e.y = 12;
-    e.x = Math.max(e.r, Math.min(view.W - e.r, tx + dir * (ty - e.y) * 0.45));
-    e.vx = -dir * 150; e.vy = 330; e.nograv = true;
+    // it drops in from the top of the sky, a little slanted, straight at the spot you tapped. It starts on the
+    // side toward the middle of the map, so the slant never pushes it out past a wall.
+    const tx = e.x, ty = view.ground - e.r, y0 = e.r + 2, dir = tx < view.W / 2 ? 1 : -1;
+    const room = dir > 0 ? view.W - e.r - 2 - tx : tx - e.r - 2;
+    const off = Math.max(0, Math.min(Math.tan(0.35) * (ty - y0), room));
+    e.x = tx + dir * off;
+    e.y = y0;
+    const dx = tx - e.x, dy = ty - y0, d = Math.hypot(dx, dy) || 1, sp = 420;
+    e.vx = (dx / d) * sp; e.vy = (dy / d) * sp;
+    e.nograv = true;
   },
   rocket: (e) => { e.fuse = 0.8; e.heading = -Math.PI / 2 + rnd(-0.3, 0.3); },
   gift: (e) => (e.open = rnd(6, 9)),
@@ -585,7 +590,9 @@ Object.assign(TICK, {
   meteor(e, dt) {
     if (Math.random() < 0.9) part(e.x + rnd(-2, 2), e.y + rnd(-2, 2), rnd(-20, 20) - e.vx * 0.2, rnd(-20, 20) - e.vy * 0.2, rnd(0.3, 0.6), pick(["#ffe26b", "#ff8a2a", "#f2561d", "#5a5060"]), 0);
     e.a = Math.atan2(e.vy, e.vx) - Math.PI * 0.75;
-    const hit = e.t > 0.05 && (e.onGround || e.x <= e.r + 1 || e.x >= view.W - e.r - 1 || Math.hypot(e.vx, e.vy) < 150);
+    // it goes off at the first thing it touches: the ground, a block, a creature, anything (impact holds the
+    // hardest hit of the last frame, so a touch is never missed)
+    const hit = e.t > 0.03 && (e.impact > 0 || e.onGround || e.y >= view.ground - e.r - 1 || Math.hypot(e.vx, e.vy) < 150);
     if (hit) {
       const x = e.x, y = e.y;
       explode(e, 80);

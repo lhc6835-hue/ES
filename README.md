@@ -34,7 +34,7 @@
 변신해서 생기는 것: 🌳 나무, 🐣 병아리, 🍗 치킨, 🍳 계란후라이, 🍣 초밥, 💀 해골
 
 ## 소리 (전부 CC0)
-- **브금**: [Open Lo-Fi](https://github.com/btahir/open-lofi)의 로파이 4곡. 메인 화면, 낮·노을·밤 맵마다 다른 곡이 흐르고 화면을 바꾸면 자연스럽게 넘어가요
+- **브금**: [Open Lo-Fi](https://github.com/btahir/open-lofi)의 로파이 'Pixel Quest Save Point'. 메인 화면부터 게임 안까지 끊기지 않고 계속 흘러요 (테마별 곡 3개도 `assets/audio/music`에 들어 있어요)
 - **효과음**: [Kenney](https://kenney.nl) Impact · Interface · Sci-Fi · Digital Audio 팩과 OpenGameArt CC0 팩(Juhani Junkala 512 Retro, RPG Sound Pack, 37 Hits/Punches, Zombies, Level-Up) 중 48가지 107개
 - 목록과 원본 파일 이름: `assets/audio/sfx/CREDITS.md`, `assets/audio/music/CREDITS.md`
 - 메인 화면 오른쪽 위 🎵 🔊, 게임 안에서는 ☰ 메뉴에서 켜고 끌 수 있어요

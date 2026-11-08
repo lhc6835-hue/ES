@@ -5,7 +5,7 @@ https://github.com/MdShahnawazSheikh/thaxas-lofi. Re-encoded to 96 kbps mp3 and 
 
 | file | track | used for |
 |---|---|---|
-| title.mp3 | Pixel Quest Save Point | title screen and menus |
-| day.mp3 | Window Seat Daydream | maps with the day theme |
-| dusk.mp3 | Porchlight Golden Hour | maps with the dusk theme |
-| night.mp3 | Electric Puddles | maps with the night theme |
+| title.mp3 | Pixel Quest Save Point | everywhere: menus and every map |
+| day.mp3 | Window Seat Daydream | spare (not played right now) |
+| dusk.mp3 | Porchlight Golden Hour | spare (not played right now) |
+| night.mp3 | Electric Puddles | spare (not played right now) |

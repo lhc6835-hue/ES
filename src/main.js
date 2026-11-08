@@ -386,7 +386,7 @@ ui.clear.onclick = async () => {
 
 function show(screen) {
   app.screen = screen;
-  music(screen === "game" || app.map ? app.map?.theme ?? "day" : "title");
+  music("title"); // the title track plays everywhere, in the menus and in every map
   document.body.dataset.screen = screen;
   if (screen === "title") document.getElementById("map-count").textContent = loadMaps().length ? ` · ${loadMaps().length}개` : "";
   fit();

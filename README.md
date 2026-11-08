@@ -31,10 +31,18 @@
 
 변신해서 생기는 것: 🌳 나무, 🐣 병아리, 🍗 치킨, 🍳 계란후라이, 🍣 초밥, 💀 해골
 
+## 소리 (전부 CC0)
+- **브금**: [Open Lo-Fi](https://github.com/btahir/open-lofi)의 로파이 4곡. 메인 화면, 낮·노을·밤 맵마다 다른 곡이 흐르고 화면을 바꾸면 자연스럽게 넘어가요
+- **효과음**: [Kenney](https://kenney.nl) Impact · Interface · Sci-Fi · Digital Audio 팩과 OpenGameArt CC0 팩(Juhani Junkala 512 Retro, RPG Sound Pack, 37 Hits/Punches, Zombies, Level-Up) 중 48가지 107개
+- 목록과 원본 파일 이름: `assets/audio/sfx/CREDITS.md`, `assets/audio/music/CREDITS.md`
+- 메인 화면 오른쪽 위 🎵 🔊, 게임 안에서는 ☰ 메뉴에서 켜고 끌 수 있어요
+
 ## 구조
 - `src/game.js` 처음 이모지들, 물리(원형 충돌·쌓기·구르기), 상호작용
 - `src/more.js` 추가 이모지, 탭 구성, 도구
 - `src/render.js` 이모지 → 도트 스프라이트, 배경, pixelfx 연결
-- `src/main.js` 루프, 입력, 툴바
+- `src/main.js` 루프, 입력, 툴바, 화면 이동
+- `src/app.js` 로고, 화면 전환, 맵 저장
+- `src/audio.js` 효과음(WebAudio)과 배경음
 - `vendor/pixelfx` 픽셀 이펙트 ([patch-gg/pixelfx](https://github.com/patch-gg/pixelfx), MIT). `cartoon-pow.js`에 `scale`, `big` 옵션 추가
 - 폰트: Galmuri (OFL, `assets/GALMURI-OFL.md`)

@@ -2,6 +2,7 @@
 // emoji-tile wipe that moves between them.
 import { view, sprite, THEMES } from "./render.js";
 import { world, DEFS, spawn, resize } from "./game.js";
+import { sfx } from "./audio.js";
 
 // ---------------------------------------------------------------- map shapes
 
@@ -162,12 +163,13 @@ export function wipe(mid) {
   const back = (p) => { const s = 1.70158; return 1 + (s + 1) * Math.pow(p - 1, 3) + s * Math.pow(p - 1, 2); };
   const t0 = performance.now();
   let switched = false;
+  sfx("whoosh", { rate: 0.9 });
   return new Promise((resolve) => {
     const tick = (now) => {
       const t = (now - t0) / 1000;
       x.clearRect(0, 0, w, h);
       const out = t > IN + HOLD;
-      if (!switched && t >= IN) { switched = true; mid?.(); }
+      if (!switched && t >= IN) { switched = true; mid?.(); sfx("whoosh", { rate: 1.2, vol: 0.7, gap: 0 }); }
       for (const q of tiles) {
         const delay = ((q.c + q.r) / (cols + rows)) * (IN - POP) + q.j;
         let p = out ? 1 - Math.min(1, Math.max(0, (t - IN - HOLD - delay) / POP)) : Math.min(1, Math.max(0, (t - delay) / POP));

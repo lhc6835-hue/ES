@@ -2,6 +2,7 @@
 // Each one plugs into the tables in game.js (DEFS, INIT, AI, TICK, PER, ZAP).
 import { view, fx } from "./render.js";
 import { FX } from "./effects.js";
+import { sfx } from "./audio.js";
 import {
   world, DEFS, INIT, AI, TICK, PER, ZAP, ON_EAT, GRAV, spawn, emote, hurt, ignite, douse, freeze, explode, strike,
   resize, nearest, dist, touching, isThreatTo, transform, pop, shatter, eat, walk, fly, wander, flee, steam, part, droplets, later, rnd, pick,
@@ -25,6 +26,7 @@ export function makeGiant(e, t = 12) {
   if (e.dead || !e.d.creature) return;
   if (!e.giant) { e.baseSize = e.size; e.baseMass = e.mass; e.size = Math.round(e.size * 1.8); e.mass *= 3; resize(e); }
   e.giant = t;
+  sfx("rise", { x: e.x, rate: 0.8 });
   fx(FX.bloom, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.6 });
   emote(e, "🤩");
 }
@@ -178,6 +180,7 @@ Object.assign(AI, {
         e.cd = rnd(5, 8);
         e.face = Math.sign(t.x - e.x) || e.face;
         emote(e, "✨");
+        sfx("magic", { x: e.x });
         beam({ x: e.x, y: e.y - e.h * 0.4 }, t, MAGIC, 14, 0.4);
         const big = t.mass >= 4;
         const spell = pick(big ? ["shrink", "float"] : ["frog", "frog", "giant", "float", "heal"]);
@@ -202,6 +205,7 @@ Object.assign(AI, {
       // water in the circuits
       e.shorted = 2.5;
       e.stun = 2.5;
+      sfx("shock", { x: e.x });
       emote(e, "💥");
       fx(FX.hitSpark, { x: Math.round(e.x), y: Math.round(e.y), palette: ["#14143a", "#3a5ad0", "#a8d0ff", "#e4f2ff", "#ffffff"], light: 0.8 });
       return;
@@ -215,6 +219,7 @@ Object.assign(AI, {
         e.cd = e.charged > 0 ? 0.35 : 0.9;
         const eye = { x: e.x + e.face * 3, y: e.y - e.h * 0.2 };
         beam(eye, foe, ["#ff3a3a", "#ff8a8a", "#ffffff"], 16, 0.15);
+        sfx("laser", { x: e.x });
         hurt(foe, 9, e);
         foe.vx += e.face * 40 / Math.sqrt(foe.mass);
         fx(FX.hitSpark, { x: Math.round(foe.x), y: Math.round(foe.y), light: 0.5 });
@@ -239,6 +244,7 @@ Object.assign(AI, {
       walk(e, dt, Math.sign(prey.x - e.x) * 62);
       if (touching(e, prey, 3)) {
         prey.dead = true;
+        sfx("chomp", { x: e.x, rate: 1.3 });
         fx(FX.hitSpark, { x: Math.round(prey.x), y: Math.round(prey.y), light: 0.5 });
         emote(e, "😼");
       }
@@ -272,6 +278,7 @@ Object.assign(AI, {
     if (bug && dist(e, bug) < 36) {
       // the tongue
       beam({ x: e.x, y: e.y - 2 }, bug, ["#ff6a8a", "#ff9ab0"], 8, 0.15);
+      sfx("squish", { x: e.x, rate: 1.5 });
       bug.dead = true;
       emote(e, "😋");
       return;
@@ -318,7 +325,7 @@ Object.assign(AI, {
     if (Math.abs(e.vx) < 2 && Math.random() < dt * 0.3) e.peck = 0.6; // grazing
     if (Math.random() < dt * 0.06) emote(e, pick(["🎵", "🌿"]));
     e.poo -= dt;
-    if (e.poo <= 0) { e.poo = rnd(15, 25); const p = spawn("poop", e.x - e.face * e.r, e.y + e.r * 0.4); if (p) p.vx = -e.face * 20; }
+    if (e.poo <= 0) { e.poo = rnd(15, 25); sfx("squish", { x: e.x, rate: 0.8 }); const p = spawn("poop", e.x - e.face * e.r, e.y + e.r * 0.4); if (p) p.vx = -e.face * 20; }
   },
 
   penguin(e, dt) {
@@ -351,6 +358,7 @@ Object.assign(AI, {
         b.vx = dx / T; b.vy = -GRAV * T / 2; b.va = rnd(8, 14) * e.face;
       }
       emote(e, "😜");
+      sfx("throw", { x: e.x });
       return;
     }
     const nana = nearest(e, (o) => o.type === "banana" && !o.held && o.t > 2, 150);
@@ -377,6 +385,8 @@ Object.assign(AI, {
         e.cd = rnd(3, 5);
         emote(e, "💢");
         const mouth = { x: e.x - side * e.w * 0.4, y: e.y - e.h * 0.1 };
+        sfx("growl", { x: e.x, rate: 0.8 });
+        later(0.1, () => sfx("breath", { x: e.x }));
         // a stream of fire
         for (let i = 0; i < 14; i++) {
           later(i * 0.025, () => {
@@ -409,6 +419,7 @@ Object.assign(AI, {
       if (dist(e, c) < e.r + c.r) {
         c.dead = true;
         e.carry = null;
+        sfx("portal", { x: e.x, rate: 1.3 });
         fx(FX.collect, { x: Math.round(e.x), y: Math.round(e.y + 4), palette: ["#0c2010", "#1f8a48", "#5ef08a", "#c8ffd8", "#ffffff"], light: 0.8 });
         emote(e, "👽");
       }
@@ -422,6 +433,7 @@ Object.assign(AI, {
       if (Math.abs(target.x - e.x) < 6 && target.y > e.y) {
         e.carry = target;
         target.carried = e;
+        sfx("beam", { x: e.x });
         emote(target, "😱");
       }
     } else fly(e, dt, view.W / 2 + Math.sin(e.t * 0.6) * view.W * 0.35, hover, 50, 1);
@@ -479,6 +491,7 @@ Object.assign(TICK, {
       if ((o.prick ?? 0) > 0) continue;
       o.prick = 0.6;
       hurt(o, 5, e);
+      sfx("smack", { x: o.x, rate: 1.4, vol: 0.6 });
       const dir = Math.sign(o.x - e.x) || 1;
       o.vx = dir * 150 / Math.sqrt(o.mass);
       o.vy = -120 / Math.sqrt(o.mass);
@@ -494,6 +507,7 @@ Object.assign(TICK, {
     if (e.cd > 0) return;
     e.cd = rnd(2.5, 4.5);
     world.shake = Math.max(world.shake, 5);
+    sfx("boom", { x: e.x, vol: 0.7, rate: 0.8 });
     const top = { x: e.x, y: e.y - e.h * 0.45 };
     for (let i = 0; i < 18; i++) part(top.x, top.y, rnd(-80, 80), rnd(-260, -140), rnd(0.6, 1.1), pick(["#ffe26b", "#ff8a2a", "#f2561d", "#c9281f"]), 0.8);
     const n = 1 + (Math.random() < 0.5 ? 1 : 0);
@@ -584,7 +598,7 @@ Object.assign(TICK, {
       e.fuse -= dt;
       e.a = e.heading + Math.PI / 4;
       if (Math.random() < 0.5) part(e.x, e.y + e.r, rnd(-10, 10), rnd(10, 30), 0.3, pick(["#c0b8c0", "#8a8090"]), -0.1);
-      if (e.fuse <= 0) { e.burnTime = 2.4; e.nograv = true; emote(e, "🔥", 0.6); }
+      if (e.fuse <= 0) { e.burnTime = 2.4; e.nograv = true; emote(e, "🔥", 0.6); sfx("rocket", { x: e.x }); }
       return;
     }
     if (e.held) { e.fuse = 0.4; e.nograv = false; return; }
@@ -603,6 +617,7 @@ Object.assign(TICK, {
     e.open -= dt;
     if (e.open > 0 && !(e.impactSeen > 220)) return;
     e.dead = true;
+    sfx("coin", { x: e.x });
     fx(FX.collect, { x: Math.round(e.x), y: Math.round(e.y), light: 0.7 });
     poofAt(e);
     const pool = Object.keys(DEFS).filter((k) => DEFS[k].info && !DEFS[k].tool && k !== "gift" && k !== "meteor");
@@ -676,6 +691,7 @@ PER.push((e, dt) => {
       e.vx *= 1.6;
       e.va = Math.sign(e.vx) * 9;
       o.vx = -e.vx * 0.5;
+      sfx("throw", { x: e.x, rate: 1.3 });
       emote(e, pick(["😵", "🍌", "😲"]));
       break;
     }
@@ -708,10 +724,11 @@ export const TOOLS = {
   lightning: (x) => strike(x),
   eraser(x, y) {
     const e = entityNear(x, y, 6);
-    if (e) { e.dead = true; poofAt(e); return; }
+    if (e) { e.dead = true; poofAt(e); sfx("erase", { x }); return; }
     if (world.water > 0 && y > view.ground - world.water - 6) {
       // the sponge soaks up the pool
       world.water = Math.max(0, world.water - 0.6);
+      sfx("drip", { x, gap: 0.12 });
       droplets(x, y, 1, ["#9bdcff", "#d8f4ff"]);
     }
   },
@@ -721,7 +738,7 @@ export const TOOLS = {
       const sick = o.hp < o.d.hp || o.burn > 0 || o.frozen > 0 || o.stun > 0 || o.infect;
       o.hp = Math.max(o.hp, o.d.hp);
       o.burn = 0; o.frozen = 0; o.stun = 0; o.infect = 0; o.chill = 0;
-      if (sick) { fx(FX.bloom, { x: Math.round(o.x), y: Math.round(o.y + o.h / 2), light: 0.6 }); emote(o, "🥰"); }
+      if (sick) { sfx("heal", { x: o.x, gap: 0.4 }); fx(FX.bloom, { x: Math.round(o.x), y: Math.round(o.y + o.h / 2), light: 0.6 }); emote(o, "🥰"); }
     }
     droplets(x, y, 3, ["#ff8ab0", "#ffc0d8", "#ffffff"]);
   },
@@ -741,6 +758,7 @@ export const TOOLS = {
       hurt(o, 25);
     }
     fx(FX.bluntHit, { x: Math.round(x), y: Math.round(y + 4), light: 0.4 });
+    sfx(any ? "wood" : "tap", { x });
     world.shake = Math.max(world.shake, any ? 4 : 2);
   },
   wind(x, y, p) {
@@ -756,6 +774,7 @@ export const TOOLS = {
       if (o.d.creature && k > 0.3 && Math.random() < 0.05) { o.tumble = true; emote(o, "😵"); }
       if (o.type === "fire" && Math.random() < 0.05) { o.dead = true; steam(o); }
     }
+    sfx("whoosh", { x, vol: 0.5, gap: 0.25, rate: 0.8 + Math.random() * 0.4 });
     const dir = sp > 40 ? [p.vx / sp, p.vy / sp] : [rnd(-1, 1), rnd(-1, 1)];
     part(x + rnd(-8, 8), y + rnd(-8, 8), dir[0] * 160, dir[1] * 160, 0.25, pick(["#ffffff", "#d8ecf8", "#b8d8ec"]), 0);
   },

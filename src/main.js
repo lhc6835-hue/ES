@@ -4,6 +4,7 @@ import { world, DEFS, spawn, step, strike, entityAt, emote, clearWorld, flipOf }
 import { RATIOS, SIZES, dims, loadMaps, deleteMap, saveMap, restore, newId, drawLogo, wipe, toast, ask, ago } from "./app.js";
 import { PALETTE, TOOLS } from "./more.js";
 import { FX } from "./effects.js";
+import { sfx, music, unlock, loopSound, prefs, setPref } from "./audio.js";
 
 const cv = document.getElementById("game");
 const ctx = cv.getContext("2d");
@@ -236,6 +237,12 @@ function place(type, x, y) {
   const e = spawn(type, x + (brush ? (Math.random() - 0.5) * 6 : 0), Math.min(y, view.ground - 4));
   if (!e) return;
   if (!brush || type === "fire") fx(FX.poof, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.4 });
+  if (!brush) sfx(type === "dino" || type === "dragon" ? "heavy" : "place", { x: e.x, rate: e.size > 24 ? 0.7 : 1 });
+  if (type === "dino") sfx("roar", { x: e.x, rate: 0.8, gap: 0.5 });
+  if (type === "dragon") sfx("growl", { x: e.x, gap: 0.5 });
+  if (type === "zombie") sfx("zombie", { x: e.x, vol: 0.8, gap: 0.5 });
+  if (type === "hole") sfx("portal", { x: e.x, rate: 0.8 });
+  if (type === "ufo") sfx("beam", { x: e.x, rate: 0.7 });
   if (type === "water") e.vy = 60;
   if (type === "dino") emote(e, "💢", 1.4);
 }
@@ -255,6 +262,7 @@ cv.addEventListener("pointerdown", (ev) => {
       e.held = true;
       e.carried = null;
       if (e.d.creature) emote(e, e.type === "dino" ? "💢" : "😨");
+      sfx("grab", { x: e.x });
       return;
     }
   }
@@ -282,6 +290,7 @@ const release = () => {
     e.vx = fresh ? pointer.vx * k : 0;
     e.vy = fresh ? pointer.vy * k : 0;
     if (e.d.creature && sp * k > 200 && fresh) { e.tumble = true; emote(e, "😱"); }
+    if (fresh && sp * k > 250) sfx("throw", { x: e.x, vol: Math.min(1, (sp * k) / 700) });
     if (e.d.roll) e.va = e.vx / e.r;
   }
   pointer.held = null;
@@ -328,6 +337,7 @@ addEventListener("keydown", (ev) => {
 // ---------------------------------------------------------------- toolbar
 
 function selectTab(i) {
+  if (state.tab !== i) sfx("click");
   state.tab = i;
   ui.tabs.querySelectorAll("button").forEach((b, j) => b.classList.toggle("on", j === i));
   ui.items.innerHTML = "";
@@ -341,13 +351,15 @@ function selectTab(i) {
     ui.items.appendChild(b);
   }
 }
-function select(type) {
+function select(type, quiet) {
+  if (!quiet && state.sel !== type) sfx("tick");
   state.sel = type;
   ui.items.querySelectorAll(".item").forEach((b) => b.classList.toggle("on", b.dataset.type === type));
   const d = DEFS[type];
   ui.hint.innerHTML = `<b>${d.ch} ${d.name}</b> ${d.info}`;
 }
 function togglePause() {
+  sfx("click");
   state.paused = !state.paused;
   ui.pause.textContent = state.paused ? "▶️" : "⏸️";
 }
@@ -358,7 +370,8 @@ PALETTE.forEach((p, i) => {
   ui.tabs.appendChild(b);
 });
 ui.pause.onclick = togglePause;
-ui.slow.onclick = () => { state.slow = !state.slow; ui.slow.classList.toggle("on", state.slow); };
+ui.slow.onclick = () => {
+  sfx("click"); state.slow = !state.slow; ui.slow.classList.toggle("on", state.slow); };
 ui.clear.onclick = async () => {
   const ok = await ask("모두 지울까요?", "맵 위의 이모지와 물이 전부 사라져요.", [{ label: "지우기", value: true, kind: "danger" }, { label: "취소", value: false, kind: "ghost" }]);
   if (ok) { clearWorld(); clearFx(); }
@@ -368,6 +381,7 @@ ui.clear.onclick = async () => {
 
 function show(screen) {
   app.screen = screen;
+  music(screen === "game" || app.map ? app.map?.theme ?? "day" : "title");
   document.body.dataset.screen = screen;
   if (screen === "title") document.getElementById("map-count").textContent = loadMaps().length ? ` · ${loadMaps().length}개` : "";
   fit();
@@ -408,19 +422,24 @@ function doSave() {
   if (!app.map) return null;
   draw(true);
   const rec = saveMap(app.map, cv);
-  if (rec) { app.map = rec; toast(`💾 "${rec.name}" 저장했어요`); }
+  if (rec) { app.map = rec; toast(`💾 "${rec.name}" 저장했어요`); sfx("save"); }
   else toast("저장 공간이 부족해요. 안 쓰는 맵을 지워 주세요.");
   return rec;
 }
 
 async function openMenu() {
+  sfx("open");
   const v = await ask("메뉴", app.map ? `"${app.map.name}"` : "", [
     { label: "💾 저장하고 나가기", value: "save", kind: "primary" },
     { label: "저장하지 않고 나가기", value: "leave" },
+    { label: `🎵 음악 ${prefs.music ? "켜짐" : "꺼짐"}`, value: "music" },
+    { label: `🔊 효과음 ${prefs.sfx ? "켜짐" : "꺼짐"}`, value: "sfx" },
     { label: "계속 놀기", value: null, kind: "ghost" },
   ]);
   if (v === "save") { if (doSave()) goMaps(); }
   else if (v === "leave") goMaps();
+  else if (v === "music" || v === "sfx") { setPref(v, !prefs[v]); syncAudioButtons(); openMenu(); }
+  else sfx("back");
 }
 
 // the map list
@@ -455,7 +474,7 @@ function renderMaps() {
     del.onclick = async (ev) => {
       ev.stopPropagation();
       const ok = await ask(`"${m.name}"을(를) 지울까요?`, "지운 맵은 되돌릴 수 없어요.", [{ label: "지우기", value: true, kind: "danger" }, { label: "취소", value: false, kind: "ghost" }]);
-      if (ok) { deleteMap(m.id); renderMaps(); toast("🗑️ 지웠어요"); }
+      if (ok) { deleteMap(m.id); renderMaps(); toast("🗑️ 지웠어요"); sfx("delete"); }
     };
     c.append(th, meta, del);
     c.onclick = () => play(m);
@@ -536,6 +555,23 @@ document.getElementById("save").onclick = doSave;
 document.getElementById("settings").onclick = () => openForm("edit");
 ui.mapname = document.getElementById("mapname");
 
+// sound needs a tap first; then every menu button clicks
+addEventListener("pointerdown", unlock, { capture: true });
+addEventListener("keydown", unlock, { capture: true });
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("button, .card");
+  if (b && !b.closest("#items") && !b.closest("#tabs") && !["pause", "slow", "menu"].includes(b.id)) sfx("click");
+});
+function syncAudioButtons() {
+  const m = document.getElementById("t-mus"), f = document.getElementById("t-snd");
+  m.classList.toggle("off", !prefs.music);
+  f.classList.toggle("off", !prefs.sfx);
+  f.textContent = prefs.sfx ? "🔊" : "🔇";
+}
+document.getElementById("t-mus").onclick = () => { setPref("music", !prefs.music); syncAudioButtons(); toast(prefs.music ? "🎵 음악 켰어요" : "🎵 음악 껐어요"); };
+document.getElementById("t-snd").onclick = () => { setPref("sfx", !prefs.sfx); syncAudioButtons(); toast(prefs.sfx ? "🔊 효과음 켰어요" : "🔇 효과음 껐어요"); };
+syncAudioButtons();
+
 // ---------------------------------------------------------------- go
 
 // behind the menus, a steady rain of emoji to play with the physics
@@ -566,6 +602,9 @@ function frame(now) {
     updateFx(dt);
   }
   draw();
+  // the tornado's wind swells while one is around
+  const torn = world.ents.filter((e) => e.type === "tornado" && !e.dead).length;
+  loopSound("wind", playing && !state.paused ? Math.min(1, torn * 0.8) : 0);
   if (app.screen === "title") drawLogo(ui.logo, now / 1000);
   if (playing) ui.count.textContent = world.ents.filter((e) => e.d.creature).length + " 마리 · " + world.ents.length + " 개";
   requestAnimationFrame(frame);

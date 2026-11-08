@@ -82,6 +82,9 @@
   .menu .btn span { color: var(--dim); font-size: 13px; margin-left: 6px; }
   .menu .btn.primary span { color: #7a5a10; }
   .credits { position: absolute; bottom: calc(10px + env(safe-area-inset-bottom)); font-size: 10px; color: #8a7aa8; text-shadow: 0 1px 0 var(--deep); }
+  .corner { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; display: flex; gap: 8px; }
+  .ctl.off { opacity: .45; text-decoration: line-through; }
+  .credits { text-align: center; padding: 0 12px; line-height: 1.6; }
   .blink { animation: blink 1.2s steps(2) infinite; }
   @keyframes blink { 50% { opacity: .35; } }
 
@@ -169,7 +172,8 @@
     <button class="btn big primary" id="go-new">▶ 새 맵 만들기</button>
     <button class="btn big" id="go-maps">📂 내 맵<span id="map-count"></span></button>
   </div>
-  <div class="credits">effects · pixelfx &nbsp;|&nbsp; font · Galmuri</div>
+  <div class="corner"><button class="ctl" id="t-mus" title="음악">🎵</button><button class="ctl" id="t-snd" title="효과음">🔊</button></div>
+  <div class="credits">effects · pixelfx &nbsp;|&nbsp; font · Galmuri &nbsp;|&nbsp; music · Open Lo-Fi (CC0) &nbsp;|&nbsp; sfx · Kenney, OpenGameArt (CC0)</div>
 </section>
 
 <section id="maps-screen" class="screen panel-screen">

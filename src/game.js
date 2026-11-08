@@ -2,6 +2,7 @@
 // game), and how they act on each other.
 import { view, sprite, fx } from "./render.js";
 import { FX } from "./effects.js";
+import { sfx } from "./audio.js";
 
 export const world = { ents: [], parts: [], water: 0, t: 0, shake: 0, flash: 0, hitstop: 0 };
 export const GRAV = 520;
@@ -174,6 +175,7 @@ export function ignite(e, t) {
   if (e.frozen > 0) { e.frozen = 0; return; }
   if (e.burn > 0) { e.burn = Math.max(e.burn, t ?? 3); return; }
   e.burn = t ?? e.d.burnTime ?? 5;
+  sfx("fire", { x: e.x, gap: 0.15 });
   if (e.d.creature) emote(e, "😱");
   const s = sprite(e.d.ch, e.size);
   e.fxs.burn = fx(FX.burning, { actor: s.actor, light: 0.8 }, () => (e.dead || e.burn <= 0 ? null : feet(e)));
@@ -187,6 +189,7 @@ export function freeze(e, t = 5) {
   if (e.burn > 0) { e.burn = 0; return; }
   e.frozen = t;
   e.want = 0;
+  sfx("glass", { x: e.x, rate: 1.2 });
   const s = sprite(e.d.ch, e.size);
   e.fxs.frozen = fx(FX.frozen, { actor: s.actor, light: 0.6 }, () => (e.dead || e.frozen <= 0 ? null : feet(e)));
 }
@@ -196,6 +199,7 @@ export function transform(e, type) {
   e.dead = true;
   const n = spawn(type, e.x, e.y);
   if (n) { n.vx = e.vx; n.vy = e.vy; n.va = e.va; n.a = e.a; }
+  sfx("pluck", { x: e.x });
   fx(FX.poof, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.5 });
   return n;
 }
@@ -208,6 +212,7 @@ export function die(e, from) {
   if (e.type === "bomb") { explode(e); return; }
   e.dead = true;
   if (e.d.creature && e.type !== "bee" && e.type !== "ghost") {
+    sfx("death", { x: e.x, gap: 0.2 });
     const s = sprite(e.d.ch, e.size);
     fx(FX.soulRise, { actor: s.actor, x: Math.round(e.x), y: Math.round(e.y + e.h / 2), height: 30 + e.size, light: 0.6 });
     const k = spawn("skull", e.x, e.y, { size: Math.round(Math.min(26, 9 + e.size * 0.2)) });
@@ -224,6 +229,7 @@ export function pop(e) {
   if (e.dead) return;
   e.dead = true;
   if (e.carry) { e.carry.carried = null; e.carry.tumble = true; emote(e.carry, "😵"); }
+  sfx("pop", { x: e.x });
   fx(FX.hitSpark, { x: Math.round(e.x), y: Math.round(e.y), light: 0.8 });
   fx(FX.collect, { x: Math.round(e.x), y: Math.round(e.y), palette: ["#5a1020", "#c8243a", "#ff6a7a", "#ffc0c8", "#ffffff"], light: 0.5 });
 }
@@ -232,6 +238,7 @@ export function explode(b, R = 60) {
   if (b.dead) return;
   b.dead = true;
   const x = b.x, y = b.y;
+  sfx(R > 70 ? "boom" : "explode", { x, gap: 0.03 });
   fx(FX.smallExplosion, { x: Math.round(x), y: Math.round(Math.min(view.ground, y + b.r)), size: 0.9, light: 1 });
   world.shake = Math.max(world.shake, 9);
   world.flash = 0.08;
@@ -259,6 +266,7 @@ export function explode(b, R = 60) {
 export function shatter(e) {
   if (e.dead) return;
   e.dead = true;
+  sfx("shatter", { x: e.x });
   fx(FX.iceShatter, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.6 });
   for (let i = 0; i < 3; i++) {
     const w = spawn("water", e.x + rnd(-5, 5), e.y + rnd(-5, 2));
@@ -274,6 +282,8 @@ export function strike(x) {
   later(0.14, () => land(x, gy));
 }
 function land(x, gy) {
+  sfx("crackle", { x });
+  sfx("thunder", { x, gap: 0.1 });
   world.flash = 0.12;
   world.shake = Math.max(world.shake, 5);
   for (const o of world.ents) {
@@ -291,6 +301,7 @@ function land(x, gy) {
   }
   if (world.water > 2) {
     // the bolt hits the pool: everyone in it gets a shock
+    sfx("shock");
     const top = waterTop();
     for (let i = 0; i < 30; i++) world.parts.push({ x: Math.random() * view.W, y: top + Math.random() * world.water, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60, life: 0.3, c: Math.random() < 0.5 ? "#e4f2ff" : "#a8d0ff", g: 0 });
     for (const o of world.ents) {
@@ -307,6 +318,7 @@ function land(x, gy) {
 
 export function grow(s) {
   const t = transform(s, "tree");
+  if (t) sfx("rise", { x: t.x, gap: 0.3 });
   if (t) fx(FX.bloom, { x: Math.round(t.x), y: Math.round(t.y + t.h / 2), light: 0.8 });
 }
 
@@ -316,6 +328,8 @@ export function eat(e, food) {
   e.hp = Math.min(e.d.hp * (e.type === "dino" ? 3 : 1.5), e.hp + (food.d.food ?? 20));
   fx(FX.collect, { x: Math.round(food.x), y: Math.round(food.y), light: 0.6 });
   emote(e, pick(["😋", "❤️"]));
+  sfx("chomp", { x: e.x, vol: 0.6 });
+  if (Math.random() < 0.15) later(0.5, () => sfx("burp", { x: e.x }));
   for (const f of ON_EAT) f(e, food);
 }
 
@@ -391,6 +405,7 @@ export const AI = {
       walk(e, dt, Math.sign(prey.x - e.x) * (prey.d.meat ? 30 : 52), 6);
       if (touching(e, prey, 4)) {
         prey.dead = true;
+        sfx("chomp", { x: e.x, rate: 0.7 });
         fx(FX.pow, { x: Math.round(prey.x), y: Math.round(prey.y + 6), text: "CHOMP!", scale: 2, big: 0.5, light: 0.5 });
         fx(FX.hitSpark, { x: Math.round(prey.x), y: Math.round(prey.y), light: 0.6 });
         world.shake = Math.max(world.shake, 3);
@@ -400,7 +415,7 @@ export const AI = {
         emote(e, "😋");
       }
       e.roar = (e.roar ?? 3) - dt;
-      if (e.roar <= 0) { e.roar = rnd(4, 8); emote(e, "💢", 1.4); world.shake = Math.max(world.shake, 2); }
+      if (e.roar <= 0) { e.roar = rnd(4, 8); emote(e, "💢", 1.4); sfx("roar", { x: e.x, rate: 0.8, gap: 1 }); world.shake = Math.max(world.shake, 2); }
     } else wander(e, dt, 16);
   },
 
@@ -411,13 +426,14 @@ export const AI = {
       walk(e, dt, Math.sign(prey.x - e.x) * (16 + 6 * Math.sin(e.t * 5)), 6);
       if (touching(e, prey, 2)) {
         prey.infect = 1.3;
+        sfx("zombie", { x: e.x, vol: 1.3, gap: 0.3 });
         prey.stun = 1.3;
         emote(prey, "😨");
         const s = sprite(prey.d.ch, prey.size);
         prey.fxs.poison = fx(FX.poisoned, { actor: s.actor, light: 0.6 }, () => (prey.dead || !prey.infect ? null : feet(prey)));
         fx(FX.bluntHit, { x: Math.round(prey.x), y: Math.round(prey.y + 4), light: 0.4 });
       }
-      if (Math.random() < dt * 0.3) emote(e, "🧠");
+      if (Math.random() < dt * 0.3) { emote(e, "🧠"); sfx("zombie", { x: e.x, vol: 0.6, gap: 1.5 }); }
     } else wander(e, dt, 8);
   },
 
@@ -465,6 +481,7 @@ export const AI = {
         if (touching(e, foe, 3) && e.cd <= 0) {
           e.cd = 0.8;
           hurt(foe, 7, e);
+          sfx("smack", { x: e.x, vol: 0.7 });
           foe.vx += Math.sign(foe.x - e.x) * 120;
           foe.vy -= 60;
           fx(FX.hitSpark, { x: Math.round((e.x + foe.x) / 2), y: Math.round(foe.y), light: 0.5 });
@@ -513,6 +530,7 @@ export const AI = {
         foe.tumble = true;
         foe.va += dir * 6;
         e.vx -= dir * 80;
+        sfx("punch", { x: foe.x });
         fx(FX.pow, { x: Math.round(foe.x), y: Math.round(foe.y + 4), text: pick(["POW!", "BAM!", "WHAM!"]), scale: 2, big: foe.type === "dino" ? 0.7 : 0.45, light: 0.5 });
         world.shake = Math.max(world.shake, foe.type === "dino" ? 5 : 3);
         world.hitstop = 0.07;
@@ -543,6 +561,7 @@ export const AI = {
       fly(e, dt, tx, ty, 130, 5);
       if (touching(e, e.target, 2)) {
         hurt(e.target, 4, e);
+        sfx("tap", { x: e.x, rate: 1.8 });
         e.target.scared = 0;
         emote(e.target, pick(["😣", "😫"]));
         e.target.vy -= 70;
@@ -592,6 +611,7 @@ export const TICK = {
     if (world.water > 0.5 && e.y + e.r >= waterTop()) {
       // into the pool
       addWater(DROP);
+      sfx("drip", { x: e.x, gap: 0.09 });
       if (Math.random() < 0.4) droplets(e.x, waterTop() - 1, 2, ["#9bdcff", "#d8f4ff"]);
       e.dead = true;
       return;
@@ -632,6 +652,8 @@ export const TICK = {
     e.hatch -= dt;
     if (e.hatch <= 0) {
       e.dead = true;
+      sfx("pluck", { x: e.x, rate: 1.2 });
+      later(1.2, () => sfx("rise", { x: e.x, rate: 1.4, vol: 0.6 }));
       fx(FX.eggHatch, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light: 0.6 });
       const x = e.x, y = e.y;
       later(1.3, () => { const c = spawn("chick", x, y - 2); if (c) { c.vy = -80; emote(c, "✨"); } });
@@ -659,6 +681,7 @@ export const TICK = {
     }
     if (e.life <= 0) {
       e.dead = true;
+      sfx("portal", { x: e.x, rate: 0.7 });
       fx(FX.implosion, { x: Math.round(e.x), y: Math.round(e.y), light: 0.9 });
       world.shake = Math.max(world.shake, 6);
       return;
@@ -676,6 +699,7 @@ export const TICK = {
       if (d < 5 * e.pull + o.r * 0.4) {
         o.dead = true;
         e.pull = Math.min(1.8, e.pull + 0.03);
+        sfx("portal", { x: e.x, rate: 1.6, vol: 0.5, gap: 0.15 });
         fx(FX.hitSpark, { x: Math.round(e.x), y: Math.round(e.y), palette: ["#140a26", "#481c88", "#9a48ec", "#ecc8ff", "#ffffff"], light: 0.6 });
       }
     }
@@ -755,6 +779,7 @@ function physics(dt) {
         const k = Math.exp(-3 * sub * dt);
         e.vx *= k; e.vy *= k; e.va *= k;
         if (was === 0 && e.vy > 90) {
+          sfx("splash", { x: e.x, vol: Math.min(1, e.vy / 300) * Math.min(1.5, e.mass), gap: 0.08 });
           for (let i = 0; i < Math.min(10, e.vy / 30); i++) world.parts.push({ x: e.x + (Math.random() - 0.5) * e.w, y: waterTop() - 1, vx: (Math.random() - 0.5) * 80, vy: -40 - Math.random() * e.vy * 0.5, life: 0.5, c: Math.random() < 0.5 ? "#d8f4ff" : "#9bdcff", g: 1 });
         }
       }
@@ -853,10 +878,18 @@ function wallHit(e, speed) {
 }
 
 /** Hard landings and crashes: creatures get hurt and dazed, eggs crack, ice shatters. */
+const MATERIAL = { rock: "rock", brick: "rock", cactus: "rock", meteor: "rock", skull: "rock", robot: "metal", bomb: "metal", magnet: "metal", rocket: "metal",
+  ufo: "metal", ice: "glass", box: "wood", gift: "wood", dino: "heavy", cow: "heavy", dragon: "heavy" };
+const material = (e) => MATERIAL[e.type] ?? (e.size < 12 ? "tap" : "thud");
+
 function impacts() {
   for (const e of world.ents) {
     if (e.dead || !e.impact) continue;
     const v = e.impact;
+    if (v > 110 && !(e.thudT > world.t - 0.15)) {
+      e.thudT = world.t;
+      sfx(material(e), { x: e.x, vol: Math.min(1, (v - 80) / 320) * (e.sub > 0.3 ? 0.4 : 1), gap: 0.03 });
+    }
     if (e.type === "egg" && v > 260) { transform(e, "fried"); continue; }
     if (e.type === "ice" && v > 420) { shatter(e); continue; }
     if (e.type === "balloon" && v > 380) { pop(e); continue; }

@@ -42,15 +42,18 @@ function resize() {
 
 // ---------------------------------------------------------------- drawing
 
-const LAYER = { tree: 0, sprout: 1, skull: 2, fried: 2, leg: 2, apple: 2, egg: 2, rock: 3, ice: 3, bomb: 3, water: 6, balloon: 5, ghost: 7, bee: 6, hero: 6 };
+const LAYER = { hole: 0, tree: 0, sprout: 1, skull: 2, fried: 2, leg: 2, apple: 2, egg: 2, rock: 3, ice: 3, bomb: 3, water: 6, balloon: 5, ghost: 7, bee: 6, hero: 6 };
 
 function drawEnt(e) {
   const d = e.d;
-  if (d.hidden) return;
   let tint = "";
   if (e.hurt > 0.08) tint = "flash";
   else if (e.type === "bomb" && e.fuse < 1.6 && Math.sin(world.t * (8 + (1.6 - e.fuse) * 22)) > 0.2) tint = "red";
-  const s = sprite(d.ch, e.size, tint);
+  let size = e.size;
+  if (e.type === "hole") size = Math.round(e.size * e.pull * (e.life < 0.6 ? Math.max(0.2, e.life / 0.6) : Math.min(1, e.t * 5)));
+  if (e.type === "fire") size = e.size + (Math.floor(e.t * 7) % 3) - 1 - (e.life < 2 ? Math.round((2 - e.life) * 3) : 0);
+  if (e.type === "fire" || e.type === "hole") glow(e, size);
+  const s = sprite(d.ch, Math.max(4, size), tint);
   const flip = flipOf(e);
   // a hop every few frames while walking, a peck for the chicken
   let bob = 0;
@@ -77,6 +80,19 @@ function drawEnt(e) {
   }
 }
 
+// a soft pool of light behind fire, a dark halo behind the black hole
+function glow(e, size) {
+  const fire = e.type === "fire", R = size * (fire ? 1.4 : 1.3) + (fire ? Math.sin(world.t * 13 + e.id) * 1.5 : 0);
+  const g = ctx.createRadialGradient(e.x, e.y, 1, e.x, e.y, R);
+  g.addColorStop(0, fire ? "rgba(255,170,60,0.45)" : "rgba(20,6,40,0.75)");
+  g.addColorStop(1, fire ? "rgba(255,120,40,0)" : "rgba(60,20,110,0)");
+  ctx.save();
+  if (fire) ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = g;
+  ctx.fillRect(Math.round(e.x - R), Math.round(e.y - R), Math.ceil(R * 2), Math.ceil(R * 2));
+  ctx.restore();
+}
+
 function drawString(b) {
   const c = b.carry;
   if (!c) return;
@@ -90,7 +106,7 @@ function drawString(b) {
 }
 
 function drawEmote(e) {
-  if (!e.emote || e.d.hidden) return;
+  if (!e.emote) return;
   const s = sprite(e.emote.ch, 12);
   const age = e.emote.T - e.emote.t, pop = age < 0.08 ? 2 : 0;
   const bw = s.w + 4, bh = s.h + 3;
@@ -182,7 +198,7 @@ cv.addEventListener("pointerdown", (ev) => {
   const tool = DEFS[state.sel].tool;
   if (!tool) {
     const e = entityAt(x, y, 2);
-    if (e && !e.d.hidden) {
+    if (e) {
       pointer.held = e;
       pointer.grab = [e.x - x, e.y - y];
       e.held = true;

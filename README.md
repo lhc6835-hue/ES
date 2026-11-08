@@ -21,5 +21,5 @@
 - `src/game.js` 이모지 특성, 물리(원형 충돌·쌓기·구르기), 상호작용
 - `src/render.js` 이모지 → 도트 스프라이트, 배경, pixelfx 연결
 - `src/main.js` 루프, 입력, 툴바
-- `vendor/pixelfx` 픽셀 이펙트 (불은 spirit-flame을 주황 팔레트로) ([patch-gg/pixelfx](https://github.com/patch-gg/pixelfx), MIT). `cartoon-pow.js`에 `scale`, `big` 옵션 추가
+- `vendor/pixelfx` 픽셀 이펙트 ([patch-gg/pixelfx](https://github.com/patch-gg/pixelfx), MIT). `cartoon-pow.js`에 `scale`, `big` 옵션 추가
 - 폰트: Galmuri (OFL, `assets/GALMURI-OFL.md`)

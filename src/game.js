@@ -3,7 +3,6 @@
 import { view, sprite, fx } from "./render.js";
 import { FX } from "./effects.js";
 
-const FIRE = ["#4a1712", "#8a1f17", "#c9281f", "#f2561d", "#ff8a2a", "#ffc23d", "#ffe26b", "#fff3a6", "#ffffff"];
 export const world = { ents: [], parts: [], t: 0, shake: 0, flash: 0, hitstop: 0 };
 const GRAV = 520;
 
@@ -29,7 +28,7 @@ export const DEFS = {
   bee: { ch: "🐝", name: "벌", size: 10, hp: 5, mass: 0.2, fly: true, left: true, burn: true, creature: true,
     info: "나무 주위를 붕붕 날아요. 가끔 근처 생물을 쏘고 도망가요." },
 
-  fire: { ch: "🔥", name: "불", size: 12, hp: 1, mass: 0.5, sensor: true, hidden: true,
+  fire: { ch: "🔥", name: "불", size: 14, hp: 1, mass: 0.5, sensor: true,
     info: "닿는 걸 태우고 얼음을 녹여요. 💧로 끌 수 있어요. 꾹 누르고 그으면 불길이 번져요.", brush: 0.25 },
   water: { ch: "💧", name: "물", size: 8, hp: 1, mass: 0.2, sensor: true,
     info: "꾹 누르면 비가 와요. 불을 끄고 새싹을 쑥쑥 키워요.", brush: 0.05 },
@@ -48,7 +47,7 @@ export const DEFS = {
     info: "엄청 무거워요. 높은 데서 떨어뜨리면 깔린 게 납작해져요." },
   balloon: { ch: "🎈", name: "풍선", size: 14, hp: 1, mass: 0.15, solid: true, bounce: 0.6, burn: true,
     info: "둥실 떠올라요. 생물에 닿으면 묶어서 하늘로 데려가요. 꼭대기에서 펑!" },
-  hole: { ch: "🌀", name: "블랙홀", size: 14, hp: 1, mass: 1, sensor: true, fly: true, hidden: true,
+  hole: { ch: "🌀", name: "블랙홀", size: 16, hp: 1, mass: 1, sensor: true, fly: true,
     info: "8초 동안 주변 모든 걸 빨아들여요." },
   egg: { ch: "🥚", name: "달걀", size: 10, hp: 1, mass: 0.4, solid: true, roll: true, burn: true, bounce: 0.3,
     info: "시간이 지나면 🐣가 나와요. 세게 떨어지거나 불에 닿으면 🍳" },
@@ -109,8 +108,8 @@ const INIT = {
   tree: (e) => (e.drop = rnd(4, 9)),
   chicken: (e) => (e.lay = rnd(5, 9)),
   balloon: (e) => (e.life = 14),
-  hole: (e) => { e.life = 8; e.pull = 1; e.fxs.hole = fx(FX.blackHole, { light: 0.8 }, () => (e.dead ? null : { x: e.x, y: e.y + 72 })); },
-  fire: (e) => { e.life = rnd(10, 14); e.fxs.fire = fx(FX.flame, { palette: FIRE, light: 0.6 }, () => (e.dead ? null : { x: e.x, y: e.y + e.r })); },
+  hole: (e) => { e.life = 8; e.pull = 1; e.va = -7; },
+  fire: (e) => (e.life = rnd(10, 14)),
   hero: (e) => (e.cd = 0),
   bee: (e) => (e.cd = rnd(2, 4)),
   skull: (e) => (e.life = 9),
@@ -542,7 +541,11 @@ const AI = {
 const TICK = {
   fire(e, dt) {
     e.life -= dt;
-    if (e.life <= 0) { e.dead = true; return; }
+    if (e.life <= 0) { e.dead = true; fx(FX.poof, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), palette: SMOKE, light: 0 }); return; }
+    // flicker: the flame mirrors itself now and then, and throws embers
+    e.flick = (e.flick ?? 0) - dt;
+    if (e.flick <= 0) { e.flick = rnd(0.08, 0.2); e.face = -e.face; }
+    if (Math.random() < dt * 10) part(e.x + rnd(-3, 3), e.y - e.h * 0.3, rnd(-10, 10), rnd(-45, -20), rnd(0.4, 0.8), pick(["#ffc23d", "#ff8a2a", "#ffe26b", "#f2561d"]), -0.03);
     e.spread = (e.spread ?? 0) - dt;
     if (e.spread > 0) return;
     e.spread = 0.35;
@@ -612,6 +615,12 @@ const TICK = {
   hole(e, dt) {
     e.life -= dt;
     e.vx *= 0.9; e.vy *= 0.9;
+    e.va = -7 * e.pull;
+    // swirling motes falling into it
+    if (Math.random() < dt * 30) {
+      const a = rnd(0, Math.PI * 2), R = rnd(14, 30) * e.pull, T = 0.35;
+      part(e.x + Math.cos(a) * R, e.y + Math.sin(a) * R, -Math.cos(a) * R / T - Math.sin(a) * 25, -Math.sin(a) * R / T + Math.cos(a) * 25, T, pick(["#9a48ec", "#c684ff", "#6b2cc0", "#ecc8ff"]), 0);
+    }
     if (e.life <= 0) {
       e.dead = true;
       fx(FX.implosion, { x: Math.round(e.x), y: Math.round(e.y), light: 0.9 });
@@ -628,7 +637,7 @@ const TICK = {
       o.vy += (dy / d) * f - (o.d.fly ? 0 : GRAV * 0.6 * dt);
       if (o.d.creature && d < 90) { o.tumble = true; if (Math.random() < dt) emote(o, "😵"); }
       if (o.carried) o.carried = null;
-      if (d < 8 + o.r * 0.4) {
+      if (d < 5 * e.pull + o.r * 0.4) {
         o.dead = true;
         e.pull = Math.min(1.8, e.pull + 0.03);
         fx(FX.hitSpark, { x: Math.round(e.x), y: Math.round(e.y), palette: ["#140a26", "#481c88", "#9a48ec", "#ecc8ff", "#ffffff"], light: 0.6 });
@@ -647,6 +656,11 @@ function steam(e) {
 // a raindrop landing: a few tiny pixels hop up, nothing more
 function splash(e) {
   droplets(e.x, Math.min(view.ground - 1, e.y + e.r), 3, ["#9bdcff", "#58b4ec", "#d8f4ff"]);
+}
+const SMOKE = ["#3a3440", "#5a5060", "#7a7080", "#9a90a0", "#b8b0c0"];
+function part(x, y, vx, vy, life, c, g = 1) {
+  if (world.parts.length > 300) world.parts.shift();
+  world.parts.push({ x, y, vx, vy, life, c, g });
 }
 function droplets(x, y, n, cols) {
   for (let i = 0; i < n; i++) {
@@ -880,8 +894,8 @@ export function step(dt) {
   impacts();
   for (let i = world.parts.length - 1; i >= 0; i--) {
     const q = world.parts[i];
-    q.vy += GRAV * dt; q.x += q.vx * dt; q.y += q.vy * dt;
-    if ((q.life -= dt) <= 0 || q.y > view.ground) world.parts.splice(i, 1);
+    q.vy += GRAV * (q.g ?? 1) * dt; q.x += q.vx * dt; q.y += q.vy * dt;
+    if ((q.life -= dt) <= 0 || (q.y > view.ground && (q.g ?? 1) > 0)) world.parts.splice(i, 1);
   }
 
   // clean up the gone, and their effects

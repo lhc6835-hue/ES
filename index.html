@@ -3,37 +3,48 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<title>Emoji Sandbox</title>
+<title>emojibox</title>
+<meta name="description" content="emojibox: 이모지를 꺼내 놓고, 던지고, 터뜨리는 픽셀 샌드박스" />
 <style>
   @font-face { font-family: "Galmuri11"; src: url("assets/Galmuri11-Bold.woff2") format("woff2"); font-weight: 400 900; }
   :root {
     --bg: #14101e; --panel: #1f1830; --panel2: #2a2140; --ink: #f2ecff; --dim: #a898c8; --accent: #ffcf4a; --line: #3d3058;
+    --hot: #ff8a1e; --pink: #ff7ab0; --sky: #5ad1ff; --deep: #1a1420;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
     font-family: "Galmuri11", system-ui, sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+  button { font-family: inherit; }
+
+  /* ---- the game */
   #wrap { position: fixed; inset: 0; display: flex; flex-direction: column; }
-  #stage { flex: 1; position: relative; overflow: hidden; display: flex; align-items: flex-start; justify-content: center; }
-  #game { display: block; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; cursor: crosshair; }
+  #stage { flex: 1; min-height: 0; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+    background: repeating-conic-gradient(#17121f 0 25%, #1b1526 0 50%) 0 0 / 16px 16px; }
+  #game { display: block; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; cursor: crosshair;
+    box-shadow: 0 0 0 3px var(--deep), 0 8px 30px rgba(0,0,0,.5); }
+  body:not([data-screen="game"]) #game { box-shadow: none; }
   #top { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; gap: 6px; align-items: center; pointer-events: none; }
-  #title { font-size: 13px; padding: 5px 9px; background: rgba(20,16,30,.72); border: 2px solid var(--line); border-radius: 6px; pointer-events: auto; }
-  #count { font-size: 11px; color: var(--dim); padding: 5px 8px; background: rgba(20,16,30,.6); border-radius: 6px; }
+  #mapname { font-size: 12px; padding: 6px 10px; background: rgba(20,16,30,.78); border: 2px solid var(--line); border-radius: 6px;
+    max-width: 34vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #mapname b { color: var(--accent); font-weight: 400; }
+  #count { font-size: 11px; color: var(--dim); padding: 5px 8px; background: rgba(20,16,30,.6); border-radius: 6px; white-space: nowrap; }
   #top .sp { flex: 1; }
-  .ctl { pointer-events: auto; font-size: 16px; width: 38px; height: 34px; border-radius: 6px; border: 2px solid var(--line);
-    background: rgba(31,24,48,.85); color: var(--ink); cursor: pointer; padding: 0; font-family: inherit; }
+  .ctl { pointer-events: auto; font-size: 16px; width: 38px; height: 34px; flex: 0 0 auto; border-radius: 6px; border: 2px solid var(--line);
+    background: rgba(31,24,48,.88); color: var(--ink); cursor: pointer; padding: 0; }
   .ctl.on { border-color: var(--accent); background: #3a2d18; }
+  @media (max-width: 520px) { #count { display: none; } .ctl { width: 34px; } #top { gap: 4px; } }
   #panel { background: var(--panel); border-top: 3px solid var(--line); padding: 6px 8px calc(8px + env(safe-area-inset-bottom)); }
   #hint { font-size: 11px; color: var(--dim); line-height: 1.5; min-height: 2.9em; padding: 0 2px 5px; }
   #hint b { color: var(--accent); font-weight: 400; margin-right: 4px; }
   #tabs { display: flex; gap: 4px; margin-bottom: 6px; overflow-x: auto; scrollbar-width: none; }
   #tabs::-webkit-scrollbar { display: none; }
-  #tabs button { flex: 0 0 auto; font-family: inherit; font-size: 12px; color: var(--dim); background: transparent; border: 2px solid transparent;
+  #tabs button { flex: 0 0 auto; font-size: 12px; color: var(--dim); background: transparent; border: 2px solid transparent;
     border-radius: 6px; padding: 4px 12px; cursor: pointer; }
   #tabs button.on { color: var(--ink); background: var(--panel2); border-color: var(--line); }
   #items { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
   #items::-webkit-scrollbar { display: none; }
   .item { position: relative; flex: 0 0 auto; width: 58px; height: 62px; border-radius: 8px; border: 2px solid var(--line); background: var(--panel2);
-    color: var(--ink); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; font-family: inherit;
+    color: var(--ink); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0;
     transition: transform .08s; }
   .item:active { transform: scale(.94); }
   .item.on { border-color: var(--accent); background: #3a2d18; box-shadow: 0 0 0 2px rgba(255,207,74,.25); }
@@ -43,16 +54,101 @@
   .item .key { position: absolute; top: 2px; left: 4px; font-size: 9px; color: #6a5a88; }
   @media (hover: none) { .item .key { display: none; } }
   @media (min-width: 700px) { #items { flex-wrap: wrap; } .item { width: 64px; height: 66px; } .item .em { font-size: 30px; } }
+  body:not([data-screen="game"]) #panel, body:not([data-screen="game"]) #top { display: none; }
+
+  /* ---- buttons */
+  .btn { font-size: 14px; color: var(--ink); background: var(--panel2); border: 3px solid var(--deep); border-radius: 10px; padding: 10px 16px;
+    cursor: pointer; box-shadow: 0 4px 0 var(--deep); transition: transform .06s, box-shadow .06s; white-space: nowrap; }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--deep); }
+  .btn.big { font-size: 18px; padding: 14px 22px; border-radius: 12px; }
+  .btn.primary { background: var(--accent); color: var(--deep); }
+  .btn.danger { background: #e2405a; }
+  .btn.ghost { background: transparent; border-color: var(--line); box-shadow: none; }
+
+  /* ---- screens over the game */
+  .screen { position: fixed; inset: 0; display: none; z-index: 5; }
+  body[data-screen="title"] #title-screen, body[data-screen="maps"] #maps-screen, body[data-screen="new"] #new-screen { display: flex; }
+
+  #title-screen { flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+    background: radial-gradient(ellipse at 50% 42%, rgba(20,16,30,.25), rgba(20,16,30,.82) 75%); }
+  #logo { width: min(92vw, 760px); image-rendering: pixelated; image-rendering: crisp-edges; filter: drop-shadow(0 10px 0 rgba(10,6,20,.45)); }
+  .sub { margin-top: 6px; font-size: clamp(14px, 3.6vw, 22px); letter-spacing: .5em; padding-left: .5em; color: var(--ink);
+    text-shadow: 0 3px 0 var(--deep), 2px 0 0 var(--deep), -2px 0 0 var(--deep), 0 -2px 0 var(--deep); }
+  .tag { margin: 14px 0 26px; font-size: clamp(11px, 2.8vw, 14px); color: #e8dcff; text-align: center; line-height: 1.6;
+    text-shadow: 0 2px 0 var(--deep); max-width: 30em; }
+  .tag b { color: var(--accent); font-weight: 400; }
+  .menu { display: flex; flex-direction: column; gap: 14px; width: min(100%, 320px); }
+  .menu .btn { width: 100%; }
+  .menu .btn span { color: var(--dim); font-size: 13px; margin-left: 6px; }
+  .menu .btn.primary span { color: #7a5a10; }
+  .credits { position: absolute; bottom: calc(10px + env(safe-area-inset-bottom)); font-size: 10px; color: #8a7aa8; text-shadow: 0 1px 0 var(--deep); }
+  .blink { animation: blink 1.2s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+
+  .panel-screen { flex-direction: column; background: rgba(16,12,26,.9); backdrop-filter: blur(2px); overflow-y: auto; touch-action: pan-y; }
+  .panel-screen header { position: sticky; top: 0; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: rgba(16,12,26,.95);
+    border-bottom: 3px solid var(--line); z-index: 1; }
+  .panel-screen h2 { margin: 0; font-size: 20px; font-weight: 400; }
+  .panel-screen h2 small { font-size: 12px; color: var(--dim); margin-left: 8px; }
+  .panel-screen .btn { padding: 8px 12px; font-size: 13px; }
+  .panel-screen .btn.big { font-size: 17px; padding: 14px 22px; }
+
+  #map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(46%, 190px), 1fr)); gap: 14px; padding: 16px; max-width: 1100px; width: 100%; margin: 0 auto; }
+  .card { position: relative; background: var(--panel); border: 3px solid var(--deep); border-radius: 12px; overflow: hidden; cursor: pointer;
+    box-shadow: 0 4px 0 var(--deep); display: flex; flex-direction: column; transition: transform .08s; }
+  .card:hover { transform: translateY(-2px); }
+  .card:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--deep); }
+  .card .thumb { aspect-ratio: 16 / 10; background: #0e0b16; display: flex; align-items: center; justify-content: center; }
+  .card .thumb img { max-width: 100%; max-height: 100%; image-rendering: pixelated; display: block; }
+  .card .meta { padding: 8px 10px 10px; }
+  .card .nm { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .sm { font-size: 10px; color: var(--dim); margin-top: 4px; }
+  .card .del { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border-radius: 8px; border: 2px solid var(--deep);
+    background: rgba(31,24,48,.9); font-size: 15px; cursor: pointer; padding: 0; }
+  .card.new { align-items: center; justify-content: center; min-height: 150px; border-style: dashed; border-color: var(--line); background: transparent; box-shadow: none; color: var(--dim); gap: 8px; }
+  .card.new .plus { font-size: 34px; }
+  .empty { grid-column: 1 / -1; text-align: center; color: var(--dim); font-size: 12px; padding: 20px 0; }
+
+  .form { width: 100%; max-width: 620px; margin: 0 auto; padding: 18px 16px 30px; display: flex; flex-direction: column; gap: 18px; }
+  .field > span, .form label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 8px; }
+  #f-name { width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--panel2); border: 3px solid var(--deep); border-radius: 10px; padding: 10px 12px; outline: none; user-select: text; -webkit-user-select: text; }
+  #f-name:focus { border-color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink); background: var(--panel2); border: 3px solid var(--deep);
+    border-radius: 9px; padding: 8px 11px; cursor: pointer; }
+  .chip.on { background: var(--accent); color: var(--deep); }
+  .chip .shape { display: inline-block; border: 2px solid currentColor; border-radius: 2px; }
+  .chip small { font-size: 10px; opacity: .7; }
+  .preview { display: flex; justify-content: center; align-items: center; height: 170px; background: repeating-conic-gradient(#17121f 0 25%, #1b1526 0 50%) 0 0 / 12px 12px;
+    border: 3px solid var(--deep); border-radius: 12px; }
+  #f-prev { position: relative; border: 3px solid var(--deep); transition: width .2s, height .2s; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+  #f-prev::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 12%; background: var(--grass, #4f9a3c); border-top: 2px solid rgba(0,0,0,.25); }
+  #f-dims { position: absolute; top: 6px; left: 6px; z-index: 1; font-size: 11px; color: #fff; background: rgba(10,8,20,.6); padding: 3px 6px; border-radius: 5px; }
+
+  /* ---- modal, toast, wipe */
+  #modal { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; background: rgba(8,6,14,.6); padding: 16px; }
+  #modal.on { display: flex; }
+  #modal .box { width: min(100%, 360px); background: var(--panel); border: 3px solid var(--deep); border-radius: 14px; box-shadow: 0 6px 0 var(--deep); padding: 18px; }
+  #modal h3 { margin: 0 0 8px; font-size: 16px; font-weight: 400; }
+  #modal p { margin: 0 0 16px; font-size: 12px; color: var(--dim); line-height: 1.6; }
+  #modal .row { display: flex; flex-direction: column; gap: 10px; }
+  #toast { position: fixed; left: 50%; top: 56px; transform: translate(-50%, -20px); opacity: 0; z-index: 30; pointer-events: none;
+    font-size: 13px; background: var(--accent); color: var(--deep); border: 3px solid var(--deep); border-radius: 10px; padding: 8px 14px; transition: .2s; }
+  #toast.on { opacity: 1; transform: translate(-50%, 0); }
+  #wipe { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 40; display: none; image-rendering: pixelated; }
 </style>
 </head>
-<body>
+<body data-screen="title">
 <div id="wrap">
   <div id="stage">
     <canvas id="game"></canvas>
     <div id="top">
-      <div id="title">이모지 샌드박스</div>
+      <button class="ctl" id="menu" title="메뉴 (Esc)">☰</button>
+      <div id="mapname"></div>
       <div id="count"></div>
       <div class="sp"></div>
+      <button class="ctl" id="save" title="저장">💾</button>
+      <button class="ctl" id="settings" title="맵 비율·크기">📐</button>
       <button class="ctl" id="slow" title="슬로모션">🐢</button>
       <button class="ctl" id="pause" title="일시정지 (Space)">⏸️</button>
       <button class="ctl" id="clear" title="모두 지우기">🗑️</button>
@@ -64,6 +160,38 @@
     <div id="items"></div>
   </div>
 </div>
+
+<section id="title-screen" class="screen">
+  <canvas id="logo" aria-label="emojibox"></canvas>
+  <div class="sub">이모지 샌드박스</div>
+  <p class="tag">꺼내고, 던지고, 터뜨리고. <b>이모지 51종</b>이 뒤엉키는 픽셀 놀이터</p>
+  <div class="menu">
+    <button class="btn big primary" id="go-new">▶ 새 맵 만들기</button>
+    <button class="btn big" id="go-maps">📂 내 맵<span id="map-count"></span></button>
+  </div>
+  <div class="credits">effects · pixelfx &nbsp;|&nbsp; font · Galmuri</div>
+</section>
+
+<section id="maps-screen" class="screen panel-screen">
+  <header><button class="btn" data-home>← 처음으로</button><h2>내 맵<small id="maps-n"></small></h2></header>
+  <div id="map-grid"></div>
+</section>
+
+<section id="new-screen" class="screen panel-screen">
+  <header><button class="btn" id="f-back">← 뒤로</button><h2 id="f-title">새 맵</h2></header>
+  <div class="form">
+    <label>이름<input id="f-name" maxlength="24" autocomplete="off" /></label>
+    <div class="field"><span>비율</span><div id="f-ratio" class="chips"></div></div>
+    <div class="field"><span>크기</span><div id="f-size" class="chips"></div></div>
+    <div class="field"><span>테마</span><div id="f-theme" class="chips"></div></div>
+    <div class="preview"><div id="f-prev"><span id="f-dims"></span></div></div>
+    <button class="btn big primary" id="f-ok">만들기</button>
+  </div>
+</section>
+
+<div id="modal"></div>
+<div id="toast"></div>
+<canvas id="wipe"></canvas>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

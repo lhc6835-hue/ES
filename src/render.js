@@ -1,7 +1,17 @@
 // Drawing: emoji turned into crisp pixel sprites, the backdrop, and the bridge to pixelfx effects.
 import { createFrame, clearFrame, createFx } from "../vendor/pixelfx/core/fx.js";
 
-export const view = { W: 320, H: 200, S: 3, ground: 180 };
+export const view = { W: 320, H: 200, S: 3, ground: 180, theme: "day" };
+
+/** The looks a map can have: sky bands top to bottom, stars, clouds, two hill colours, grass and dirt. */
+export const THEMES = {
+  day: { name: "낮", icon: "☀️", sky: ["#3f6fb8", "#4f84c4", "#5f98cc", "#74acd6", "#8cc0de", "#a6d2e6", "#c4e2ee"], stars: 0, cloud: ["#ffffff", "#d4e6f0"],
+    hills: ["#6aa6b4", "#4f8f6e"], grass: ["#4f9a3c", "#7cd052"], dirt: ["#7a543c", "#604030", "#9a7658"] },
+  dusk: { name: "노을", icon: "🌇", sky: ["#2a1c4a", "#4a2a64", "#7a3a6e", "#b44e6a", "#e0705e", "#f49a5e", "#fcc878"], stars: 0.5, cloud: ["#ffc8a0", "#e08a8a"],
+    hills: ["#6a3a5c", "#3c2a44"], grass: ["#3c5a34", "#6a8a40"], dirt: ["#4a3030", "#362228", "#6a4a40"] },
+  night: { name: "밤", icon: "🌙", sky: ["#0a0a1e", "#10132e", "#151c40", "#1c2850", "#243460", "#2c4070", "#344c7c"], stars: 1, cloud: ["#4a5a80", "#34405e"],
+    hills: ["#1e2c48", "#16243a"], grass: ["#24503a", "#3a7a50"], dirt: ["#2e2430", "#221a26", "#46384a"], moon: true },
+};
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif';
 const OUTLINE = 0xff20141a; // ABGR: #1a1420
@@ -89,12 +99,13 @@ function tintPx(v, tint) {
 let bg = null;
 export function buildBackdrop() {
   const { W, H, ground } = view;
+  const T = THEMES[view.theme] ?? THEMES.day;
   bg = document.createElement("canvas");
   bg.width = W;
   bg.height = H;
   const x = bg.getContext("2d");
   // sky in hard bands
-  const sky = ["#2a2a5c", "#33407a", "#3f5a96", "#4f78ae", "#6496c2", "#7fb2d2", "#a2cede"];
+  const sky = T.sky;
   const band = Math.ceil(ground / sky.length);
   sky.forEach((c, i) => { x.fillStyle = c; x.fillRect(0, i * band, W, band + 1); });
   // dither between bands
@@ -108,16 +119,27 @@ export function buildBackdrop() {
   // stars in the top band
   let seed = 7;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  x.fillStyle = "#c8d4ff";
-  for (let i = 0; i < W / 12; i++) x.fillRect((rnd() * W) | 0, (rnd() * band * 1.5) | 0, 1, 1);
+  x.fillStyle = "#e0e6ff";
+  if (T.stars) for (let i = 0; i < (W * ground / 900) * T.stars; i++) x.fillRect((rnd() * W) | 0, (rnd() * ground * (0.25 + 0.5 * T.stars)) | 0, 1, 1);
+  if (T.moon) {
+    const mx = Math.round(W * 0.8), my = Math.round(ground * 0.18), r = Math.max(5, Math.round(Math.min(W, ground) * 0.045));
+    x.fillStyle = "#fff4d0"; disc(x, mx, my, r);
+    x.fillStyle = sky[0]; disc(x, mx + Math.round(r * 0.5), my - Math.round(r * 0.25), r);
+  }
+  if (view.theme === "dusk") {
+    // a low sun sinking behind the hills
+    const sx = Math.round(W * 0.3), sy = Math.round(ground - 26), r = Math.max(8, Math.round(Math.min(W, ground) * 0.07));
+    x.fillStyle = "#ffe08a"; disc(x, sx, sy, r);
+    x.fillStyle = "#fff4c8"; disc(x, sx, sy, Math.round(r * 0.7));
+  }
   // clouds
   const cloud = (cx, cy, s) => {
-    x.fillStyle = "#e8f2f8";
+    x.fillStyle = T.cloud[0];
     for (let i = 0; i < 5; i++) {
       const r = s * (0.5 + rnd() * 0.5), ox = (i - 2) * s * 0.7;
       disc(x, cx + ox, cy - r * 0.3, r);
     }
-    x.fillStyle = "#c2d6e6";
+    x.fillStyle = T.cloud[1];
     x.fillRect(cx - s * 1.8, cy + 1, s * 3.6, 2);
   };
   for (let i = 0; i < Math.max(2, W / 110); i++) cloud(rnd() * W, ground * (0.2 + rnd() * 0.35), 5 + rnd() * 5);
@@ -129,21 +151,21 @@ export function buildBackdrop() {
       x.fillRect(xx, Math.round(y), 1, ground - Math.round(y));
     }
   };
-  hill(ground - 8, 22, 0.021, "#5c8ca0", 1.3);
-  hill(ground - 2, 14, 0.034, "#4a7a6a", 4.1);
+  hill(ground - 8, Math.min(22, ground * 0.18), 0.021, T.hills[0], 1.3);
+  hill(ground - 2, Math.min(14, ground * 0.12), 0.034, T.hills[1], 4.1);
   // ground: grass lip, dirt, pebbles
-  x.fillStyle = "#3f8a3a";
+  x.fillStyle = T.grass[0];
   x.fillRect(0, ground, W, 3);
-  x.fillStyle = "#6cc04a";
+  x.fillStyle = T.grass[1];
   x.fillRect(0, ground, W, 1);
-  x.fillStyle = "#6a4a3a";
+  x.fillStyle = T.dirt[0];
   x.fillRect(0, ground + 3, W, H - ground - 3);
-  x.fillStyle = "#553a30";
+  x.fillStyle = T.dirt[1];
   for (let yy = ground + 5; yy < H; yy += 2) for (let xx = (yy % 4) / 2; xx < W; xx += 4) if (rnd() < 0.35) x.fillRect(xx, yy, 1, 1);
-  x.fillStyle = "#8a6a52";
+  x.fillStyle = T.dirt[2];
   for (let i = 0; i < W / 8; i++) x.fillRect((rnd() * W) | 0, ground + 4 + ((rnd() * (H - ground - 5)) | 0), 2, 1);
   // grass tufts
-  x.fillStyle = "#6cc04a";
+  x.fillStyle = T.grass[1];
   for (let i = 0; i < W / 6; i++) { const gx = (rnd() * W) | 0; x.fillRect(gx, ground - 1, 1, 1); if (rnd() < 0.4) x.fillRect(gx + 1, ground - 2, 1, 2); }
   // the walls: a dark frame so it's clear things bounce off the sides
   x.fillStyle = "#1a1420";

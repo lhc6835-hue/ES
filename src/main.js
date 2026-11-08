@@ -1,6 +1,7 @@
-// Emoji Sandbox: the loop, drawing the world, touch and mouse input, and the toolbar.
-import { view, sprite, buildBackdrop, drawBackdrop, resizeFx, updateFx, drawFx, fx, clearFx } from "./render.js";
+// emojibox: the loop, drawing the world, touch and mouse input, the toolbar, and moving between screens.
+import { view, sprite, buildBackdrop, drawBackdrop, resizeFx, updateFx, drawFx, fx, clearFx, THEMES } from "./render.js";
 import { world, DEFS, spawn, step, strike, entityAt, emote, clearWorld, flipOf } from "./game.js";
+import { RATIOS, SIZES, dims, loadMaps, deleteMap, saveMap, restore, newId, drawLogo, wipe, toast, ask, ago } from "./app.js";
 import { PALETTE, TOOLS } from "./more.js";
 import { FX } from "./effects.js";
 
@@ -15,30 +16,54 @@ const ui = {
   slow: document.getElementById("slow"),
   clear: document.getElementById("clear"),
   panel: document.getElementById("panel"),
+  stage: document.getElementById("stage"),
+  logo: document.getElementById("logo"),
 };
 
 const state = { tab: 0, sel: "person", paused: false, slow: false };
+/** Which screen is up (title, maps, new, game) and the map being played. */
+const app = { screen: "title", map: null, form: null };
 
 // ---------------------------------------------------------------- sizing
 
-function resize() {
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const panelH = ui.panel.getBoundingClientRect().height;
-  const S = vw < 700 ? 2 : vw < 1500 ? 3 : 4;
-  const W = Math.max(160, Math.floor(vw / S)), H = Math.max(140, Math.floor((vh - panelH) / S));
+/** The world behind the menus fills the window. */
+function demoDims() {
+  const vw = innerWidth, vh = innerHeight, S = vw < 700 ? 2 : vw < 1500 ? 3 : 4;
+  return { W: Math.max(160, Math.floor(vw / S)), H: Math.max(140, Math.floor(vh / S)) };
+}
+
+/** Make the world W x H with a theme; what's already in it keeps its place relative to the floor. */
+function setWorld(W, H, theme = "day") {
   const oldW = view.W, oldG = view.ground;
-  Object.assign(view, { W, H, S, ground: H - 14 });
+  Object.assign(view, { W, H, ground: H - 14, theme });
   cv.width = W;
   cv.height = H;
-  cv.style.width = W * S + "px";
-  cv.style.height = H * S + "px";
   ctx.imageSmoothingEnabled = false;
   buildBackdrop();
   resizeFx();
   for (const e of world.ents) {
-    e.x = Math.min(e.x * (W / oldW), W - e.r);
-    e.y = Math.min(e.y + (view.ground - oldG), view.ground - e.r);
+    e.x = Math.max(e.r, Math.min(e.x * (W / oldW), W - e.r));
+    e.y = Math.max(e.r, Math.min(e.y + (view.ground - oldG), view.ground - e.r));
   }
+  world.water = Math.min(world.water, view.ground * 0.75);
+  fit();
+}
+
+/** Scale the world to the space it has: whole pixels when that wastes little room, otherwise exactly fitted. */
+function fit() {
+  const r = ui.stage.getBoundingClientRect();
+  const pad = app.screen === "game" ? 8 : 0;
+  const k = app.screen === "game" ? Math.min((r.width - pad) / view.W, (r.height - pad) / view.H) : Math.max(r.width / view.W, r.height / view.H);
+  const ki = Math.floor(k);
+  const S = ki >= 1 && ki / k > 0.86 ? ki : k;
+  view.S = S;
+  cv.style.width = Math.round(view.W * S) + "px";
+  cv.style.height = Math.round(view.H * S) + "px";
+}
+
+function onResize() {
+  if (app.map) fit();
+  else { const d = demoDims(); setWorld(d.W, d.H, "day"); }
 }
 
 // ---------------------------------------------------------------- drawing
@@ -162,7 +187,7 @@ function drawEmote(e) {
   ctx.drawImage(s.canvas, x + 2, y + 1);
 }
 
-function draw() {
+function draw(clean = false) {
   const { W, H, S } = view;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const sh = world.shake > 0.5 ? world.shake : 0;
@@ -179,7 +204,7 @@ function draw() {
   drawFx(ctx, "front");
   for (const e of ents) drawEmote(e);
   // brush cursor
-  if (pointer.inside && !pointer.down && matchMedia("(hover: hover)").matches) {
+  if (!clean && app.screen === "game" && pointer.inside && !pointer.down && matchMedia("(hover: hover)").matches) {
     const s = sprite(DEFS[state.sel].ch, 9);
     ctx.globalAlpha = 0.5;
     ctx.drawImage(s.canvas, Math.round(pointer.x - s.w / 2), Math.round(pointer.y - s.h / 2));
@@ -189,7 +214,7 @@ function draw() {
     ctx.fillStyle = `rgba(255,255,240,${Math.min(0.7, world.flash * 6)})`;
     ctx.fillRect(-10, -10, W + 20, H + 20);
   }
-  if (state.paused) {
+  if (!clean && state.paused && app.screen === "game") {
     ctx.fillStyle = "rgba(10,8,20,0.35)";
     ctx.fillRect(-10, -10, W + 20, H + 20);
   }
@@ -201,7 +226,7 @@ const pointer = { x: 0, y: 0, vx: 0, vy: 0, down: false, inside: false, held: nu
 
 function toWorld(ev) {
   const r = cv.getBoundingClientRect();
-  return [(ev.clientX - r.left) / view.S, (ev.clientY - r.top) / view.S];
+  return [((ev.clientX - r.left) * view.W) / r.width, ((ev.clientY - r.top) * view.H) / r.height];
 }
 
 function place(type, x, y) {
@@ -217,6 +242,7 @@ function place(type, x, y) {
 
 cv.addEventListener("pointerdown", (ev) => {
   ev.preventDefault();
+  if (app.screen !== "game") return;
   cv.setPointerCapture(ev.pointerId);
   const [x, y] = toWorld(ev);
   Object.assign(pointer, { x, y, vx: 0, vy: 0, down: true, inside: true, lastT: performance.now(), brushT: 0 });
@@ -290,6 +316,8 @@ function updatePointer(dt) {
 
 // keyboard: 1-8 picks from the tab, Tab/Q/E switch tabs, Space pauses
 addEventListener("keydown", (ev) => {
+  if (app.screen !== "game" || ev.target.tagName === "INPUT" || document.getElementById("modal").classList.contains("on")) return;
+  if (ev.key === "Escape") return openMenu();
   if (ev.key === " ") { togglePause(); ev.preventDefault(); return; }
   if (ev.key === "q" || ev.key === "Q") return selectTab((state.tab + PALETTE.length - 1) % PALETTE.length);
   if (ev.key === "e" || ev.key === "E" || ev.key === "Tab") { ev.preventDefault(); return selectTab((state.tab + 1) % PALETTE.length); }
@@ -331,46 +359,229 @@ PALETTE.forEach((p, i) => {
 });
 ui.pause.onclick = togglePause;
 ui.slow.onclick = () => { state.slow = !state.slow; ui.slow.classList.toggle("on", state.slow); };
-ui.clear.onclick = () => { clearWorld(); clearFx(); };
+ui.clear.onclick = async () => {
+  const ok = await ask("모두 지울까요?", "맵 위의 이모지와 물이 전부 사라져요.", [{ label: "지우기", value: true, kind: "danger" }, { label: "취소", value: false, kind: "ghost" }]);
+  if (ok) { clearWorld(); clearFx(); }
+};
+
+// ---------------------------------------------------------------- screens
+
+function show(screen) {
+  app.screen = screen;
+  document.body.dataset.screen = screen;
+  if (screen === "title") document.getElementById("map-count").textContent = loadMaps().length ? ` · ${loadMaps().length}개` : "";
+  fit();
+}
+
+/** Leave the map being played (if any) for the menus, with the world behind them filling the window. */
+function leaveMap() {
+  if (!app.map) return;
+  app.map = null;
+  clearWorld();
+  clearFx();
+  state.paused = false;
+  ui.pause.textContent = "⏸️";
+  const d = demoDims();
+  show("title");
+  setWorld(d.W, d.H, "day");
+}
+
+function goTitle() { return wipe(() => { leaveMap(); show("title"); }); }
+function goMaps() { return wipe(() => { leaveMap(); renderMaps(); show("maps"); }); }
+
+function play(map) {
+  return wipe(() => {
+    clearWorld();
+    clearFx();
+    app.map = map;
+    show("game");
+    setWorld(map.W, map.H, map.theme);
+    world.water = map.water ?? 0;
+    restore(map.ents);
+    ui.mapname.innerHTML = "";
+    const b = document.createElement("b"); b.textContent = "emojibox";
+    ui.mapname.append(b, " · " + map.name);
+  });
+}
+
+function doSave() {
+  if (!app.map) return null;
+  draw(true);
+  const rec = saveMap(app.map, cv);
+  if (rec) { app.map = rec; toast(`💾 "${rec.name}" 저장했어요`); }
+  else toast("저장 공간이 부족해요. 안 쓰는 맵을 지워 주세요.");
+  return rec;
+}
+
+async function openMenu() {
+  const v = await ask("메뉴", app.map ? `"${app.map.name}"` : "", [
+    { label: "💾 저장하고 나가기", value: "save", kind: "primary" },
+    { label: "저장하지 않고 나가기", value: "leave" },
+    { label: "계속 놀기", value: null, kind: "ghost" },
+  ]);
+  if (v === "save") { if (doSave()) goMaps(); }
+  else if (v === "leave") goMaps();
+}
+
+// the map list
+function renderMaps() {
+  const grid = document.getElementById("map-grid"), maps = loadMaps();
+  document.getElementById("maps-n").textContent = maps.length ? `${maps.length}개` : "";
+  grid.innerHTML = "";
+  const add = document.createElement("div");
+  add.className = "card new";
+  add.innerHTML = `<div class="plus">＋</div><div>새 맵 만들기</div>`;
+  add.onclick = () => openForm("new");
+  grid.appendChild(add);
+  if (!maps.length) {
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = "아직 저장한 맵이 없어요. 새 맵을 만들고 게임 안에서 💾를 눌러 저장해 보세요.";
+    grid.appendChild(e);
+  }
+  for (const m of maps) {
+    const c = document.createElement("div");
+    c.className = "card";
+    const th = document.createElement("div"); th.className = "thumb";
+    if (m.thumb) { const img = new Image(); img.src = m.thumb; img.alt = ""; th.appendChild(img); }
+    const meta = document.createElement("div"); meta.className = "meta";
+    const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = m.name;
+    const sm = document.createElement("div"); sm.className = "sm";
+    const size = SIZES.find((q) => q.id === m.size)?.name ?? "";
+    sm.textContent = `${THEMES[m.theme]?.icon ?? ""} ${m.ratio} · ${size} · ${(m.ents ?? []).length}개 · ${ago(m.updated ?? m.created)}`;
+    meta.append(nm, sm);
+    const del = document.createElement("button");
+    del.className = "del"; del.textContent = "🗑️"; del.title = "지우기";
+    del.onclick = async (ev) => {
+      ev.stopPropagation();
+      const ok = await ask(`"${m.name}"을(를) 지울까요?`, "지운 맵은 되돌릴 수 없어요.", [{ label: "지우기", value: true, kind: "danger" }, { label: "취소", value: false, kind: "ghost" }]);
+      if (ok) { deleteMap(m.id); renderMaps(); toast("🗑️ 지웠어요"); }
+    };
+    c.append(th, meta, del);
+    c.onclick = () => play(m);
+    grid.appendChild(c);
+  }
+}
+
+// the new-map (or map settings) form
+function openForm(mode) {
+  const m = mode === "edit" ? app.map : null;
+  app.form = { mode, name: m?.name ?? `맵 ${loadMaps().length + 1}`, ratio: m?.ratio ?? "16:9", size: m?.size ?? "m", theme: m?.theme ?? "day" };
+  document.getElementById("f-title").textContent = mode === "edit" ? "맵 비율·크기" : "새 맵";
+  document.getElementById("f-ok").textContent = mode === "edit" ? "적용하기" : "만들기";
+  document.getElementById("f-name").value = app.form.name;
+  renderForm();
+  if (mode === "edit") { show("new"); return; }
+  return wipe(() => { leaveMap(); show("new"); });
+}
+function chip(label, on, onclick, extra) {
+  const b = document.createElement("button");
+  b.className = "chip" + (on ? " on" : "");
+  if (extra) b.appendChild(extra);
+  b.append(label);
+  b.onclick = onclick;
+  return b;
+}
+function renderForm() {
+  const f = app.form;
+  const R = document.getElementById("f-ratio"), Z = document.getElementById("f-size"), T = document.getElementById("f-theme");
+  R.innerHTML = ""; Z.innerHTML = ""; T.innerHTML = "";
+  for (const r of RATIOS) {
+    const sh = document.createElement("span");
+    sh.className = "shape";
+    const k = 16 / Math.max(r.w, r.h);
+    sh.style.width = Math.round(r.w * k) + "px";
+    sh.style.height = Math.round(r.h * k) + "px";
+    R.appendChild(chip(r.id, f.ratio === r.id, () => { f.ratio = r.id; renderForm(); }, sh));
+  }
+  for (const z of SIZES) {
+    const d = dims(f.ratio, z.id), sm = document.createElement("small");
+    sm.textContent = ` ${d.W}×${d.H}`;
+    const b = chip(z.name, f.size === z.id, () => { f.size = z.id; renderForm(); });
+    b.appendChild(sm);
+    Z.appendChild(b);
+  }
+  for (const [id, t] of Object.entries(THEMES)) T.appendChild(chip(`${t.icon} ${t.name}`, f.theme === id, () => { f.theme = id; renderForm(); }));
+  // the preview: the map's shape, its size relative to the biggest, its sky
+  const d = dims(f.ratio, f.size), big = dims(f.ratio, "xl");
+  const box = { w: Math.min(innerWidth - 80, 300), h: 140 };
+  const k = Math.min(box.w / big.W, box.h / big.H) * Math.sqrt((d.W * d.H) / (big.W * big.H)) ** 0.3;
+  const prev = document.getElementById("f-prev"), th = THEMES[f.theme];
+  const fitK = Math.min(box.w / d.W, box.h / d.H, k * (big.W / d.W));
+  prev.style.width = Math.round(d.W * fitK) + "px";
+  prev.style.height = Math.round(d.H * fitK) + "px";
+  prev.style.background = `linear-gradient(${th.sky.join(",")})`;
+  prev.style.setProperty("--grass", th.grass[0]);
+  document.getElementById("f-dims").textContent = `${d.W} × ${d.H}`;
+}
+document.getElementById("f-name").addEventListener("input", (ev) => (app.form.name = ev.target.value));
+document.getElementById("f-ok").onclick = () => {
+  const f = app.form, d = dims(f.ratio, f.size), name = (f.name || "").trim() || "이름 없는 맵";
+  if (f.mode === "edit" && app.map) {
+    Object.assign(app.map, { name, ratio: f.ratio, size: f.size, theme: f.theme, W: d.W, H: d.H });
+    return wipe(() => {
+      show("game");
+      setWorld(d.W, d.H, f.theme);
+      ui.mapname.lastChild.textContent = " · " + name;
+    });
+  }
+  play({ id: newId(), name, ratio: f.ratio, size: f.size, theme: f.theme, W: d.W, H: d.H, created: Date.now(), ents: [], water: 0 });
+};
+document.getElementById("f-back").onclick = () => (app.form?.mode === "edit" ? show("game") : goMaps());
+document.querySelector("[data-home]").onclick = goTitle;
+document.getElementById("go-new").onclick = () => openForm("new");
+document.getElementById("go-maps").onclick = goMaps;
+document.getElementById("menu").onclick = openMenu;
+document.getElementById("save").onclick = doSave;
+document.getElementById("settings").onclick = () => openForm("edit");
+ui.mapname = document.getElementById("mapname");
 
 // ---------------------------------------------------------------- go
+
+// behind the menus, a steady rain of emoji to play with the physics
+const DEMO = ["person", "dog", "chicken", "cat", "apple", "ball", "balloon", "frog", "penguin", "cow", "box", "pizza", "banana", "fish",
+  "egg", "bee", "mushroom", "brick", "baby", "monkey", "gift", "snail", "cactus", "mouse", "cheese", "rock", "bomb"];
+let demoT = 0;
+function demo(dt) {
+  demoT -= dt;
+  if (demoT > 0) return;
+  demoT = 0.55;
+  const live = world.ents.filter((e) => e.type !== "tree" && !e.dead);
+  if (live.length > 38) { const o = live[0]; o.dead = true; fx(FX.poof, { x: Math.round(o.x), y: Math.round(o.y + o.h / 2), light: 0.3 }); }
+  const type = DEMO[(Math.random() * DEMO.length) | 0];
+  const e = spawn(type, view.W * (0.08 + Math.random() * 0.84), -10);
+  if (e) { e.y = e.r + 2; e.vx = (Math.random() - 0.5) * 120; e.va = (Math.random() - 0.5) * 8; }
+}
 
 let last = performance.now();
 function frame(now) {
   let dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (state.slow) dt *= 0.3;
-  updatePointer(dt);
-  if (!state.paused) {
+  const playing = app.screen === "game";
+  if (playing && state.slow) dt *= 0.3;
+  if (playing) updatePointer(dt);
+  else if (!app.map) demo(dt);
+  if (!(playing && state.paused)) {
     step(dt);
     updateFx(dt);
   }
   draw();
-  ui.count.textContent = world.ents.filter((e) => e.d.creature).length + " 마리 · " + world.ents.length + " 개";
+  if (app.screen === "title") drawLogo(ui.logo, now / 1000);
+  if (playing) ui.count.textContent = world.ents.filter((e) => e.d.creature).length + " 마리 · " + world.ents.length + " 개";
   requestAnimationFrame(frame);
-}
-
-function starter() {
-  const { W, ground } = view;
-  spawn("tree", W * 0.78, ground - 20);
-  spawn("person", W * 0.3, ground - 10);
-  spawn("person", W * 0.45, ground - 10);
-  spawn("dog", W * 0.38, ground - 10);
-  spawn("chicken", W * 0.62, ground - 10);
-  spawn("bee", W * 0.8, ground - 50);
-  for (let i = 0; i < 3; i++) spawn("apple", W * 0.15 + i * 9, ground - 30 - i * 12);
 }
 
 async function boot() {
   try { await document.fonts.load('12px "Galmuri11"'); } catch {}
   selectTab(0);
   select("person");
-  resize();
-  addEventListener("resize", resize);
-  starter();
+  show("title");
+  const d = demoDims();
+  setWorld(d.W, d.H, "day");
+  addEventListener("resize", onResize);
   requestAnimationFrame(frame);
 }
 boot();
 
 // for automated checks
-window.__sandbox = { world, spawn, state, select, strike, view };
+window.__sandbox = { world, spawn, state, select, strike, view, app, play, doSave, goMaps, openForm, loadMaps };

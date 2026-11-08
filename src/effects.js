@@ -1,4 +1,5 @@
 // The pixelfx effects this game plays (vendor/pixelfx, MIT, patch-gg/pixelfx).
+import * as nuke from "../vendor/pixelfx/fx/explosions/nuke.js";
 import * as poof from "../vendor/pixelfx/fx/spawn/poof.js";
 import * as smallExplosion from "../vendor/pixelfx/fx/explosions/small-explosion.js";
 import * as pow from "../vendor/pixelfx/fx/explosions/cartoon-pow.js";
@@ -19,4 +20,4 @@ import * as soulRise from "../vendor/pixelfx/fx/spawn/soul-rise.js";
 import * as heavyLanding from "../vendor/pixelfx/fx/impacts/heavy-landing.js";
 import * as bloom from "../vendor/pixelfx/fx/nature/healing-bloom.js";
 
-export const FX = { poof, smallExplosion, pow, lightning, burning, frozen, poisoned, iceShatter, splash, implosion, eggHatch, hitSpark, bluntHit, collect, soulRise, heavyLanding, bloom };
+export const FX = { nuke, poof, smallExplosion, pow, lightning, burning, frozen, poisoned, iceShatter, splash, implosion, eggHatch, hitSpark, bluntHit, collect, soulRise, heavyLanding, bloom };

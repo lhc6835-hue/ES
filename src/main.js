@@ -73,7 +73,7 @@ function onResize() {
 
 // ---------------------------------------------------------------- drawing
 
-const LAYER = { volcano: 0, cloud: 8, storm: 8, tornado: 5, ufo: 7, dragon: 7, meteor: 7, rocket: 6, hole: 0, tree: 0, sprout: 1, skull: 2, fried: 2, leg: 2, apple: 2, egg: 2, rock: 3, ice: 3, bomb: 3, water: 6, balloon: 5, ghost: 7, bee: 6, hero: 6 };
+const LAYER = { nuke: 3, volcano: 0, cloud: 8, storm: 8, tornado: 5, ufo: 7, dragon: 7, meteor: 7, rocket: 6, hole: 0, tree: 0, sprout: 1, skull: 2, fried: 2, leg: 2, apple: 2, egg: 2, rock: 3, ice: 3, bomb: 3, water: 6, balloon: 5, ghost: 7, bee: 6, hero: 6 };
 
 function drawEnt(e) {
   const d = e.d;

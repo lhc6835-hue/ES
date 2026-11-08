@@ -92,6 +92,8 @@ Object.assign(DEFS, {
   sushi: { ch: "🍣", name: "초밥", size: 12, hp: 5, mass: 0.3, solid: true, food: 25, meat: true },
 
   // things
+  nuke: { ch: "☢️", name: "핵폭탄", size: 16, hp: 999, mass: 2, solid: true, metal: true,
+    info: "5초 뒤… 화면 전체를 날려버리는 거대한 버섯구름! 근처 모든 게 사라져요." },
   rocket: { ch: "🚀", name: "로켓", size: 14, hp: 1, mass: 1, solid: true, metal: true,
     info: "잠깐 뒤 불을 뿜으며 날아가요. 어딘가 부딪히면 펑!" },
   ball: { density: 0.3, ch: "🏀", name: "공", size: 13, hp: 999, mass: 0.5, solid: true, roll: true, bounce: 0.85, toy: true,
@@ -120,7 +122,7 @@ export const PALETTE = [
   { tab: "자연", items: ["fire", "water", "snow", "sprout", "cactus", "mushroom", "ice", "volcano"] },
   { tab: "날씨·재해", items: ["lightning", "cloud", "storm", "tornado", "meteor", "ufo", "hole"] },
   { tab: "음식", items: ["apple", "banana", "cheese", "pizza", "egg"] },
-  { tab: "물건", items: ["bomb", "rocket", "rock", "box", "ball", "balloon", "gift", "magnet", "poop"] },
+  { tab: "물건", items: ["bomb", "nuke", "rocket", "rock", "box", "ball", "balloon", "gift", "magnet", "poop"] },
   { tab: "도구", items: ["eraser", "heal", "hammer", "wind"] },
 ];
 
@@ -153,6 +155,7 @@ Object.assign(INIT, {
     e.vx = (dx / d) * sp; e.vy = (dy / d) * sp;
     e.nograv = true;
   },
+  nuke: (e) => { e.fuse = 5; },
   rocket: (e) => { e.fuse = 0.8; e.heading = -Math.PI / 2 + rnd(-0.3, 0.3); },
   gift: (e) => (e.open = rnd(6, 9)),
   poop: (e) => (e.life = 25),
@@ -601,6 +604,25 @@ Object.assign(TICK, {
     }
   },
 
+  nuke(e, dt) {
+    e.fuse -= dt;
+    if (e.fuse > 0) {
+      // the countdown: a beeping warning that gets faster
+      e.beep = (e.beep ?? 0) - dt;
+      if (e.beep <= 0) { e.beep = Math.max(0.12, e.fuse / 5); sfx("tick", { x: e.x, rate: 1.6, gap: 0 }); emote(e, e.fuse < 1.5 ? "‼️" : "⚠️", 0.3); }
+      return;
+    }
+    const x = e.x, y = Math.min(view.ground, e.y + e.r);
+    e.dead = true;
+    fx(FX.nuke, { x: Math.round(x), y: Math.round(view.ground), light: 1.2 });
+    sfx("boom", { x, gap: 0 }); later(0.15, () => sfx("explode", { x, gap: 0 })); later(0.4, () => sfx("thunder", { x, gap: 0 }));
+    world.flash = 0.6; world.shake = 22; world.hitstop = 0.12;
+    explode({ x, y, r: 8, dead: false }, Math.max(view.W, view.H) * 0.55);
+    for (let i = 0; i < 10; i++) { const f = spawn("fire", x + rnd(-view.W * 0.4, view.W * 0.4), view.ground - 8); if (f) { f.vy = rnd(-200, -60); f.vx = rnd(-120, 120); } }
+    // a lingering rumble and a second flash
+    later(0.5, () => { world.shake = Math.max(world.shake, 14); world.flash = Math.max(world.flash, 0.25); });
+    later(1.2, () => { world.shake = Math.max(world.shake, 8); });
+  },
   rocket(e, dt) {
     if (e.fuse > 0) {
       e.fuse -= dt;

@@ -3,12 +3,21 @@
 import { view, sprite, fx } from "./render.js";
 import { FX } from "./effects.js";
 
-export const world = { ents: [], parts: [], t: 0, shake: 0, flash: 0, hitstop: 0 };
+export const world = { ents: [], parts: [], water: 0, t: 0, shake: 0, flash: 0, hitstop: 0 };
 export const GRAV = 520;
 /** Extra per-entity rules, run every step before the creature thinks (added by more.js). */
 export const PER = [];
 /** What a lightning bolt does to a type, instead of the usual burn and hurt. */
 export const ZAP = {};
+/** The top of the pooled water (screen y). */
+export const waterTop = () => view.ground - world.water;
+/** Pour in an area of water (px²): it spreads over the whole floor, between the walls. */
+export function addWater(area) {
+  world.water = Math.min(view.ground * 0.75, world.water + area / view.W);
+}
+/** Things that ignore the water: weather, effects in the air, plants and fixtures rooted in the floor. */
+const DRY = new Set(["hole", "water", "snow", "cloud", "storm", "ghost", "tree", "volcano", "sprout", "tornado", "fire", "meteor", "rocket"]);
+const DROP = 55;
 /** Called when something eats something (added by more.js). */
 export const ON_EAT = [];
 
@@ -19,7 +28,7 @@ export const ON_EAT = [];
 export const DEFS = {
   person: { brains: true, ch: "🏃", name: "사람", size: 15, hp: 30, mass: 1, solid: true, left: true, burn: true, creature: true, fearful: true, prey: true,
     info: "땅을 돌아다녀요. 무서운 게 보이면 도망가고, 배고프면 🍎🍗를 주워 먹어요." },
-  dino: { villain: true, threat: 90, ch: "🦖", name: "공룡", size: 34, hp: 220, mass: 8, solid: true, left: true, creature: true, burn: true,
+  dino: { density: 0.8, villain: true, threat: 90, ch: "🦖", name: "공룡", size: 34, hp: 220, mass: 8, solid: true, left: true, creature: true, burn: true,
     info: "크고 무거워요. 사람·닭·좀비를 쫓아가서 한입에 먹고 점점 커져요." },
   zombie: { villain: true, threat: 90, ch: "🧟", name: "좀비", size: 15, hp: 25, mass: 1, solid: true, burn: true, creature: true, prey: true, burnHurt: 2,
     info: "느릿느릿 사람을 쫓아가요. 물리면 사람도 좀비가 돼요. 불에 약해요." },
@@ -37,35 +46,35 @@ export const DEFS = {
   fire: { ch: "🔥", name: "불", size: 14, hp: 1, mass: 0.5, sensor: true,
     info: "닿는 걸 태우고 얼음을 녹여요. 💧로 끌 수 있어요. 꾹 누르고 그으면 불길이 번져요.", brush: 0.25 },
   water: { ch: "💧", name: "물", size: 8, hp: 1, mass: 0.2, sensor: true,
-    info: "꾹 누르면 비가 와요. 불을 끄고 새싹을 쑥쑥 키워요.", brush: 0.05 },
+    info: "꾹 누르면 비가 와요. 땅에 고이면 점점 차올라요. 가벼운 건 뜨고 무거운 건 가라앉아요. 🧽로 닦아낼 수 있어요.", brush: 0.05 },
   sprout: { ch: "🌱", name: "새싹", size: 11, hp: 5, mass: 0.3, sensor: true, burn: true,
     info: "시간이 지나면 🌳 나무가 돼요. 물을 주면 더 빨리 자라요." },
-  ice: { ch: "🧊", name: "얼음", size: 16, hp: 60, mass: 2, solid: true, slide: true,
+  ice: { density: 0.85, ch: "🧊", name: "얼음", size: 16, hp: 60, mass: 2, solid: true, slide: true,
     info: "미끄러워요. 닿은 생물을 꽁꽁 얼려요. 불에 녹으면 물이 돼요." },
   lightning: { ch: "⚡", name: "번개", tool: true,
     info: "누른 곳에 번개가 떨어져요. 태우고, 터뜨리고, 유령도 없애요.", brush: 0.35 },
-  apple: { ch: "🍎", name: "사과", size: 11, hp: 5, mass: 0.4, solid: true, roll: true, food: 20, bounce: 0.35,
+  apple: { density: 0.6, ch: "🍎", name: "사과", size: 11, hp: 5, mass: 0.4, solid: true, roll: true, food: 20, bounce: 0.35,
     info: "데굴데굴 굴러요. 사람이 먹으면 기운이 나요." },
 
-  bomb: { ch: "💣", name: "폭탄", size: 14, hp: 1, mass: 1.2, solid: true, roll: true,
+  bomb: { density: 1.6, ch: "💣", name: "폭탄", size: 14, hp: 1, mass: 1.2, solid: true, roll: true,
     info: "3초 뒤에 펑! 근처 모든 걸 날려버려요. 불이 닿으면 바로 터져요." },
-  rock: { ch: "🪨", name: "바위", size: 19, hp: 999, mass: 6, solid: true, roll: true, bounce: 0.08,
+  rock: { density: 3, ch: "🪨", name: "바위", size: 19, hp: 999, mass: 6, solid: true, roll: true, bounce: 0.08,
     info: "엄청 무거워요. 높은 데서 떨어뜨리면 깔린 게 납작해져요." },
-  balloon: { ch: "🎈", name: "풍선", size: 14, hp: 1, mass: 0.15, solid: true, bounce: 0.6, burn: true,
+  balloon: { density: 0.1, ch: "🎈", name: "풍선", size: 14, hp: 1, mass: 0.15, solid: true, bounce: 0.6, burn: true,
     info: "둥실 떠올라요. 생물에 닿으면 묶어서 하늘로 데려가요. 꼭대기에서 펑!" },
   hole: { ch: "🌀", name: "블랙홀", size: 16, hp: 1, mass: 1, sensor: true, fly: true,
     info: "8초 동안 주변 모든 걸 빨아들여요." },
-  egg: { ch: "🥚", name: "달걀", size: 10, hp: 1, mass: 0.4, solid: true, roll: true, burn: true, bounce: 0.3,
+  egg: { density: 1.2, ch: "🥚", name: "달걀", size: 10, hp: 1, mass: 0.4, solid: true, roll: true, burn: true, bounce: 0.3,
     info: "시간이 지나면 🐣가 나와요. 세게 떨어지거나 불에 닿으면 🍳" },
 
-  eraser: { ch: "🧽", name: "지우개", tool: true, info: "누르고 문지르면 지워져요.", brush: 0.03 },
+  eraser: { ch: "🧽", name: "지우개", tool: true, info: "누르고 문지르면 지워져요. 고인 물도 쭉 빨아들여요.", brush: 0.03 },
 
   // things that only come from other things
   tree: { ch: "🌳", name: "나무", size: 34, hp: 80, mass: 4, sensor: true, burn: true, burnTime: 8 },
   chick: { ch: "🐣", name: "병아리", size: 11, hp: 6, mass: 0.4, solid: true, left: true, burn: true, creature: true, prey: true },
   leg: { ch: "🍗", name: "치킨", size: 12, hp: 5, mass: 0.4, solid: true, roll: true, food: 30, meat: true, bounce: 0.25 },
   fried: { ch: "🍳", name: "계란후라이", size: 12, hp: 5, mass: 0.4, solid: true, food: 20, meat: true },
-  skull: { ch: "💀", name: "해골", size: 11, hp: 999, mass: 0.6, solid: true, roll: true, bounce: 0.3 },
+  skull: { density: 1.4, ch: "💀", name: "해골", size: 11, hp: 999, mass: 0.6, solid: true, roll: true, bounce: 0.3 },
 };
 
 
@@ -280,6 +289,19 @@ function land(x, gy) {
     ignite(o, 4);
     hurt(o, o.type === "dino" ? 45 : 70);
   }
+  if (world.water > 2) {
+    // the bolt hits the pool: everyone in it gets a shock
+    const top = waterTop();
+    for (let i = 0; i < 30; i++) world.parts.push({ x: Math.random() * view.W, y: top + Math.random() * world.water, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60, life: 0.3, c: Math.random() < 0.5 ? "#e4f2ff" : "#a8d0ff", g: 0 });
+    for (const o of world.ents) {
+      if (o.dead || !(o.sub > 0) || !o.d.creature) continue;
+      if (ZAP[o.type]) { ZAP[o.type](o); continue; }
+      o.stun = Math.max(o.stun, 1.5);
+      emote(o, "😵");
+      hurt(o, o.type === "fish" ? 5 : 20);
+    }
+    return;
+  }
   if (Math.random() < 0.5) spawn("fire", x, gy - 6);
 }
 
@@ -301,7 +323,8 @@ export function eat(e, food) {
 
 export function walk(e, dt, speed, accel = 10) {
   // only feet on something can push
-  if (!e.onGround || e.tumble) return;
+  if ((!e.onGround && !(e.sub > 0.4)) || e.tumble) return;
+  if (!e.onGround) { speed *= 0.6; accel *= 0.5; } // swimming
   e.vx += (speed - e.vx) * Math.min(1, accel * dt);
   if (Math.abs(speed) > 4) e.face = Math.sign(speed);
   // stuck against something: hop over it
@@ -566,6 +589,13 @@ export const TICK = {
   water(e, dt) {
     e.life -= dt;
     if (e.life <= 0) { e.dead = true; return; }
+    if (world.water > 0.5 && e.y + e.r >= waterTop()) {
+      // into the pool
+      addWater(DROP);
+      if (Math.random() < 0.4) droplets(e.x, waterTop() - 1, 2, ["#9bdcff", "#d8f4ff"]);
+      e.dead = true;
+      return;
+    }
     for (const o of world.ents) {
       if (o.dead || o === e || o.type === "water" || !touching(e, o, 0)) continue;
       if (o.type === "fire") { o.dead = true; steam(o); e.dead = true; return; }
@@ -578,6 +608,7 @@ export const TICK = {
     if (e.onGround) {
       for (const o of world.ents) if (o.type === "sprout" && Math.abs(o.x - e.x) < 14) { o.grow -= 2; sparkle(o); }
       splash(e);
+      addWater(DROP);
       e.dead = true;
     }
   },
@@ -619,6 +650,8 @@ export const TICK = {
     e.life -= dt;
     e.vx *= 0.9; e.vy *= 0.9;
     e.va = -7 * e.pull;
+    // and it drinks the pool
+    if (world.water > 0) world.water = Math.max(0, world.water - 4 * e.pull * dt);
     // swirling motes falling into it
     if (Math.random() < dt * 30) {
       const a = rnd(0, Math.PI * 2), R = rnd(14, 30) * e.pull, T = 0.35;
@@ -710,6 +743,22 @@ function physics(dt) {
       g = 0;
     }
     e.vy += g * dt;
+    // the pool: what's lighter than water floats, what's heavier sinks, everything slows down
+    const was = e.sub ?? 0;
+    e.sub = 0;
+    if (world.water > 0.5 && !DRY.has(e.type) && !(d.fly && !e.tumble && !(e.frozen > 0))) {
+      const sub = Math.max(0, Math.min(1, (e.y + e.r - waterTop()) / (2 * e.r)));
+      e.sub = sub;
+      if (sub > 0) {
+        const dens = d.density ?? (d.creature ? 0.65 : 0.8);
+        e.vy -= (GRAV * sub / dens) * dt;
+        const k = Math.exp(-3 * sub * dt);
+        e.vx *= k; e.vy *= k; e.va *= k;
+        if (was === 0 && e.vy > 90) {
+          for (let i = 0; i < Math.min(10, e.vy / 30); i++) world.parts.push({ x: e.x + (Math.random() - 0.5) * e.w, y: waterTop() - 1, vx: (Math.random() - 0.5) * 80, vy: -40 - Math.random() * e.vy * 0.5, life: 0.5, c: Math.random() < 0.5 ? "#d8f4ff" : "#9bdcff", g: 1 });
+        }
+      }
+    }
     const drag = d.fly && !e.tumble ? 0.4 : e.type === "balloon" ? 1.2 : 0.05;
     e.vx *= Math.exp(-drag * dt);
     e.vy *= Math.exp(-drag * dt);
@@ -878,7 +927,7 @@ export function step(dt) {
       if (!e.tumble && !e.held && !e.carried && !e.d.fly && Math.hypot(e.vx, e.vy) > 260) e.tumble = true;
       if (e.tumble) {
         if (!e.onGround) e.va = e.vx / Math.max(4, e.r) * 0.6;
-        if ((e.onGround || e.d.fly) && Math.hypot(e.vx, e.vy) < 50) { e.tumble = false; e.stun = Math.max(e.stun, 0.4); }
+        if ((e.onGround || e.d.fly || e.sub > 0.4) && Math.hypot(e.vx, e.vy) < 50) { e.tumble = false; e.stun = Math.max(e.stun, 0.4); }
       }
       if (!e.tumble) {
         // stand back up
@@ -887,6 +936,12 @@ export function step(dt) {
       }
     }
 
+    if (e.sub > 0.3) {
+      e.wet = Math.max(e.wet ?? 0, 1);
+      if (e.burn > 0) { douse(e); steam(e); }
+    }
+    if (e.type === "fire" && world.water > e.h * 0.4) { e.dead = true; steam(e); continue; }
+    if (e.type === "sprout" && world.water > 1) e.grow -= dt;
     for (const f of PER) f(e, dt);
     if (e.dead) continue;
     const busy = e.held || e.frozen > 0 || e.stun > 0 || e.tumble || e.infect || e.carried;
@@ -921,6 +976,7 @@ export function clearWorld() {
   for (const e of world.ents) for (const f of Object.values(e.fxs)) f.stop?.();
   world.ents.length = 0;
   world.parts.length = 0;
+  world.water = 0;
   timers.length = 0;
 }
 

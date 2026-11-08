@@ -96,6 +96,23 @@ function glow(e, size) {
   ctx.restore();
 }
 
+// the pool: see-through blue over everything in it, a bright rippling surface line, glints
+function drawWater() {
+  if (world.water < 0.3) return;
+  const { W, ground } = view, top = ground - world.water, t = world.t;
+  for (let x = 0; x < W; x++) {
+    const y = Math.round(top + Math.sin(x * 0.19 + t * 2.6) * 0.7 + Math.sin(x * 0.067 - t * 1.6) * 0.9);
+    if (y >= ground) continue;
+    ctx.fillStyle = "rgba(36,104,200,0.42)";
+    ctx.fillRect(x, y + 1, 1, ground - y - 1);
+    ctx.fillStyle = "rgba(20,60,150,0.25)";
+    if (ground - y > 6) ctx.fillRect(x, ground - Math.min(4, (ground - y) >> 2), 1, Math.min(4, (ground - y) >> 2));
+    ctx.fillStyle = "rgba(200,240,255,0.9)";
+    ctx.fillRect(x, y, 1, 1);
+    if (((x * 7 + Math.floor(t * 3)) % 23) === 0 && ground - y > 4) { ctx.fillStyle = "rgba(220,245,255,0.6)"; ctx.fillRect(x, y + 2, 2, 1); }
+  }
+}
+
 function drawBeam(u) {
   const c = u.carry, top = u.y + u.h * 0.3, bot = Math.max(c.y + c.h / 2, top + 4), w0 = u.w * 0.25, w1 = Math.max(c.w * 0.7, w0 + 6);
   ctx.save();
@@ -157,6 +174,7 @@ function draw() {
   for (const e of ents) if (e.type === "balloon") drawString(e);
   for (const e of ents) if (e.type === "ufo" && e.carry) drawBeam(e);
   for (const e of ents) drawEnt(e);
+  drawWater();
   for (const q of world.parts) { ctx.fillStyle = q.c; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
   drawFx(ctx, "front");
   for (const e of ents) drawEmote(e);

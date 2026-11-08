@@ -8,6 +8,7 @@ import {
 } from "./game.js";
 
 const poofAt = (e, palette, light = 0.4) => fx(FX.poof, { x: Math.round(e.x), y: Math.round(e.y + e.h / 2), light, ...(palette ? { palette } : {}) });
+const DUST = ["#8a6a52", "#a08070", "#c0b0a0", "#6a5040"];
 const MAGIC = ["#2b1252", "#6b2cc0", "#9a48ec", "#c684ff", "#ecc8ff"];
 const SLIME = ["#0c2010", "#1f5a28", "#3e9a3a", "#8ad860", "#d8ffb0"];
 
@@ -36,7 +37,7 @@ Object.assign(DEFS, {
     info: "엉금엉금 기어다녀요. 혼자 있으면 울어요. 시간이 지나면 어른이 돼요." },
   wizard: { ch: "🧙", name: "마법사", size: 15, hp: 40, mass: 1, solid: true, burn: true, creature: true, prey: true, brains: true,
     info: "가끔 근처 생물한테 마법을 걸어요. 개구리로 만들거나, 거대하게 키우거나, 풍선을 달아줘요." },
-  robot: { ch: "🤖", name: "로봇", size: 15, hp: 120, mass: 2.5, solid: true, creature: true, metal: true,
+  robot: { density: 2.5, ch: "🤖", name: "로봇", size: 15, hp: 120, mass: 2.5, solid: true, creature: true, metal: true,
     info: "순찰하다 악당한테 레이저를 쏴요. 물에 젖으면 합선! 번개를 맞으면 오히려 충전돼요." },
 
   // animals
@@ -46,9 +47,9 @@ Object.assign(DEFS, {
     info: "쪼르르 돌아다녀요. 🧀 치즈를 좋아하고 고양이를 무서워해요." },
   frog: { ch: "🐸", name: "개구리", size: 12, hp: 12, mass: 0.5, solid: true, burn: true, creature: true, prey: true,
     info: "폴짝폴짝 뛰어다녀요. 혀를 날름 내밀어 벌을 잡아먹어요." },
-  fish: { ch: "🐟", name: "물고기", size: 12, hp: 10, mass: 0.5, solid: true, left: true, burn: true, creature: true, prey: true,
+  fish: { density: 1.0, ch: "🐟", name: "물고기", size: 12, hp: 10, mass: 0.5, solid: true, left: true, burn: true, creature: true, prey: true,
     info: "물 밖에선 파닥파닥! 💧를 뿌려주지 않으면 🍣가 돼요." },
-  cow: { ch: "🐄", name: "소", size: 22, hp: 80, mass: 4, solid: true, left: true, burn: true, creature: true, prey: true,
+  cow: { density: 0.75, ch: "🐄", name: "소", size: 22, hp: 80, mass: 4, solid: true, left: true, burn: true, creature: true, prey: true,
     info: "느긋하게 풀을 뜯어요. 가끔 💩를 싸요. UFO가 노려요." },
   penguin: { ch: "🐧", name: "펭귄", size: 14, hp: 25, mass: 0.9, solid: true, burn: true, creature: true, prey: true,
     info: "뒤뚱뒤뚱 걷다가 배로 쭉 미끄러져요. 얼음이랑 눈을 좋아해요." },
@@ -64,7 +65,7 @@ Object.assign(DEFS, {
   // nature and weather
   snow: { ch: "❄️", name: "눈", size: 7, hp: 1, mass: 0.1, sensor: true, g: 0.08, brush: 0.05,
     info: "꾹 누르면 눈이 펄펄. 불을 끄고, 많이 맞은 생물은 얼어요." },
-  cactus: { ch: "🌵", name: "선인장", size: 18, hp: 60, mass: 6, solid: true, burn: true, bounce: 0.05,
+  cactus: { density: 0.7, ch: "🌵", name: "선인장", size: 18, hp: 60, mass: 6, solid: true, burn: true, bounce: 0.05,
     info: "가시가 따끔! 닿은 생물은 튕겨나가고 풍선은 터져요." },
   mushroom: { ch: "🍄", name: "버섯", size: 11, hp: 5, mass: 0.3, solid: true, food: 10, giant: true,
     info: "먹으면 몸이 엄청 커져요. 잠깐 동안만요." },
@@ -74,8 +75,8 @@ Object.assign(DEFS, {
     info: "둥둥 떠다니며 비를 뿌려요. 나무랑 새싹이 좋아해요." },
   storm: { ch: "⛈️", name: "번개구름", size: 24, hp: 999, mass: 1, sensor: true, fly: true,
     info: "비를 뿌리다가 가끔 아래로 번개를 내리쳐요." },
-  tornado: { ch: "🌪️", name: "회오리", size: 24, hp: 999, mass: 2, sensor: true,
-    info: "땅을 쓸고 다니며 닿는 걸 다 감아올려요. 10초 뒤 사라져요." },
+  tornado: { ch: "🌪️", name: "회오리", size: 46, hp: 999, mass: 2, sensor: true,
+    info: "거대한 회오리가 휩쓸고 다녀요. 닿는 건 다 빨아올려 빙글빙글 돌리다가 멀리 던져버려요. 물도 빨아들여요." },
   meteor: { ch: "☄️", name: "운석", size: 16, hp: 999, mass: 6, solid: true,
     info: "하늘에서 비스듬히 날아와 쾅! 불바다를 만들어요." },
 
@@ -91,15 +92,15 @@ Object.assign(DEFS, {
   // things
   rocket: { ch: "🚀", name: "로켓", size: 14, hp: 1, mass: 1, solid: true, metal: true,
     info: "잠깐 뒤 불을 뿜으며 날아가요. 어딘가 부딪히면 펑!" },
-  ball: { ch: "🏀", name: "공", size: 13, hp: 999, mass: 0.5, solid: true, roll: true, bounce: 0.85, toy: true,
+  ball: { density: 0.3, ch: "🏀", name: "공", size: 13, hp: 999, mass: 0.5, solid: true, roll: true, bounce: 0.85, toy: true,
     info: "통통 잘 튀어요. 강아지랑 고양이가 쫓아가서 차요." },
-  brick: { ch: "🧱", name: "벽돌", size: 14, hp: 999, mass: 3, solid: true, bounce: 0.02,
+  brick: { density: 2.5, ch: "🧱", name: "벽돌", size: 14, hp: 999, mass: 3, solid: true, bounce: 0.02,
     info: "무겁고 안 굴러가요. 쌓아서 벽을 만들어 보세요." },
-  box: { ch: "📦", name: "상자", size: 15, hp: 40, mass: 1.5, solid: true, burn: true, bounce: 0.05,
+  box: { density: 0.5, ch: "📦", name: "상자", size: 15, hp: 40, mass: 1.5, solid: true, burn: true, bounce: 0.05,
     info: "쌓을 수 있어요. 불에 타요." },
-  gift: { ch: "🎁", name: "선물", size: 14, hp: 1, mass: 0.8, solid: true, bounce: 0.2,
+  gift: { density: 0.6, ch: "🎁", name: "선물", size: 14, hp: 1, mass: 0.8, solid: true, bounce: 0.2,
     info: "세게 던지거나 잠시 기다리면 열려요. 뭐가 나올까?" },
-  magnet: { ch: "🧲", name: "자석", size: 14, hp: 999, mass: 2, solid: true,
+  magnet: { density: 3, ch: "🧲", name: "자석", size: 14, hp: 999, mass: 2, solid: true,
     info: "쇠붙이를 끌어당겨요. 폭탄, 로봇, 로켓, UFO까지!" },
   poop: { ch: "💩", name: "똥", size: 11, hp: 5, mass: 0.5, solid: true, roll: true, bounce: 0.1,
     info: "모두가 피해 다녀요. 강아지만 킁킁." },
@@ -136,7 +137,7 @@ Object.assign(INIT, {
   volcano: (e) => (e.cd = rnd(1.5, 3)),
   cloud: (e) => { e.y = Math.min(e.y, view.ground - 70); e.vx = pick([-18, 18]); },
   storm: (e) => { e.y = Math.min(e.y, view.ground - 70); e.vx = pick([-14, 14]); e.cd = rnd(2, 4); },
-  tornado: (e) => { e.life = 10; e.vx = pick([-45, 45]); },
+  tornado: (e) => { e.life = 12; e.dir = pick([-1, 1]); world.shake = Math.max(world.shake, 6); },
   meteor: (e) => {
     // it comes in from the sky, aimed where you tapped
     const dir = e.x < view.W / 2 ? -1 : 1, tx = e.x, ty = view.ground;
@@ -287,6 +288,17 @@ Object.assign(AI, {
   },
 
   fish(e, dt) {
+    if (e.sub > 0.6 && world.water > e.h) {
+      // home: swim about under the surface
+      e.dry = 0;
+      e.goalT = (e.goalT ?? 0) - dt;
+      const top = view.ground - world.water;
+      if (e.goalT <= 0 || !e.goal) { e.goalT = rnd(1.5, 3.5); e.goal = { x: rnd(e.r, view.W - e.r), y: rnd(top + e.r + 2, view.ground - e.r) }; }
+      fly(e, dt, e.goal.x, Math.max(top + e.r + 2, e.goal.y), 45, 2);
+      if (Math.random() < dt * 0.2) emote(e, pick(["😊", "🫧"]));
+      if (Math.random() < dt * 2) part(e.x, e.y - e.r, rnd(-3, 3), -20, 0.6, "#d8f4ff", -0.05);
+      return;
+    }
     e.dry = e.wet > 0 ? 0 : e.dry + dt;
     if (e.dry > 25) { const s = transform(e, "sushi"); if (s) s.vy = -60; return; }
     if (e.dry > 15 && Math.random() < dt * 0.5) emote(e, pick(["😵", "💧"]));
@@ -502,22 +514,56 @@ Object.assign(TICK, {
 
   tornado(e, dt) {
     e.life -= dt;
-    if (e.life <= 0) { e.dead = true; poofAt(e, ["#3a3440", "#5a5060", "#8a8090", "#b0a8b8", "#d0c8d8"], 0); return; }
-    if (e.x < e.r + 2) e.vx = Math.abs(e.vx);
-    if (e.x > view.W - e.r - 2) e.vx = -Math.abs(e.vx);
-    e.vx = Math.sign(e.vx) * 45 + Math.sin(e.t * 2) * 15;
-    e.face = Math.sin(e.t * 20) > 0 ? 1 : -1; // whirl
-    if (Math.random() < dt * 20) part(e.x + rnd(-e.r, e.r), view.ground - 1, rnd(-30, 30), rnd(-60, -20), 0.5, pick(["#8a6a52", "#a08070", "#c0b0a0"]), 0.3);
+    if (e.life <= 0) {
+      e.dead = true;
+      poofAt(e, ["#3a3440", "#5a5060", "#8a8090", "#b0a8b8", "#d0c8d8"], 0);
+      for (let i = 0; i < 30; i++) part(e.x + rnd(-e.w, e.w) * 0.5, e.y + rnd(-e.h, e.h) * 0.5, rnd(-120, 120), rnd(-120, 40), rnd(0.4, 0.8), pick(DUST), 0.4);
+      return;
+    }
+    // it wanders, changing its mind, and the ground shakes under it
+    e.turn = (e.turn ?? 0) - dt;
+    if (e.turn <= 0) { e.turn = rnd(1.2, 3); e.dir = pick([-1, 1]); }
+    if (e.x < e.r + 4) e.dir = 1;
+    if (e.x > view.W - e.r - 4) e.dir = -1;
+    e.vx = e.dir * 60 + Math.sin(e.t * 2.3) * 30;
+    e.face = Math.sin(e.t * 24) > 0 ? 1 : -1; // whirl
+    world.shake = Math.max(world.shake, e.life < 1 ? 0 : 1.6);
+    const base = e.y + e.h / 2, top = base - e.h * 3.2, R = e.w * 0.75;
+    // dust kicked up at its foot and debris whipping round the funnel
+    for (let i = 0; i < 4; i++) {
+      part(e.x + rnd(-R, R), base - 1, rnd(-80, 80), rnd(-110, -40), rnd(0.3, 0.6), pick(DUST), 0.4);
+      const h = rnd(0, 1), y = base - h * (base - top) * 0.7, w = R * (0.4 + h);
+      const side = Math.random() < 0.5 ? -1 : 1;
+      part(e.x + side * w, y, -side * rnd(60, 140) + e.vx, rnd(-60, -20), rnd(0.15, 0.3), pick(["#c0b8c8", "#a098a8", "#8a6a52", "#d8d0e0"]), 0);
+    }
+    // it drinks up the pool as spray
+    if (world.water > 0.5) {
+      world.water = Math.max(0, world.water - 2.5 * dt);
+      for (let i = 0; i < 2; i++) part(e.x + rnd(-R, R) * 0.5, view.ground - world.water, rnd(-60, 60), rnd(-260, -160), rnd(0.4, 0.7), pick(["#9bdcff", "#d8f4ff"]), 0.6);
+    }
     for (const o of world.ents) {
-      if (o.dead || o === e || o.held || o.type === "tornado" || o.type === "volcano" || o.type === "cloud" || o.type === "storm" || o.type === "ufo") continue;
-      const dx = e.x - o.x;
-      if (Math.abs(dx) > 34 || o.y < view.ground - 140) continue;
+      if (o.dead || o === e || o.held || o.type === "tornado" || o.type === "volcano" || o.type === "cloud" || o.type === "storm" || o.type === "ufo" || o.type === "hole") continue;
+      if (o.spun > 0) continue; // just thrown out; give it a moment
+      const dx = e.x - o.x, height = base - o.y;
+      // the funnel widens as it rises
+      const reach = R * (1 + Math.max(0, height) / (base - top) * 1.2);
+      if (Math.abs(dx) > reach || o.y < top - 10 || height < -10) continue;
+      if (o.type === "fire") { o.dead = true; steam(o); continue; }
       const k = 1 / Math.sqrt(o.mass);
-      o.vx += (dx * 5 + Math.cos(e.t * 6 + o.id) * 120) * dt * k * 3;
-      o.vy -= 1100 * dt * k;
-      o.va += 10 * dt;
-      if (o.d.creature) { o.tumble = true; if (Math.random() < dt) emote(o, pick(["😵", "🌀", "😱"])); }
-      if (o.type === "fire") o.dead = o.life < 0;
+      if (o.y < top + 8) {
+        // spat out of the top
+        o.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(260, 420) * k;
+        o.vy = -rnd(60, 160) * k;
+        o.spun = 1.2;
+        if (o.d.creature) emote(o, pick(["😵", "😱", "🌀"]));
+        continue;
+      }
+      // pulled in, swung round and up
+      o.vx += (dx * 7 + Math.cos(e.t * 7 + o.id * 1.7) * 420) * dt * k;
+      o.vy -= (GRAV + 900) * dt * k;
+      o.vy = Math.max(o.vy, -260);
+      o.va += 18 * dt;
+      if (o.d.creature) { o.tumble = true; o.carried = null; if (Math.random() < dt * 1.5) emote(o, pick(["😵", "🌀", "😱"])); }
     }
   },
 
@@ -601,6 +647,14 @@ function drift(e, dt, rate) {
 
 PER.push((e, dt) => {
   if (e.prick > 0) e.prick -= dt;
+  if (e.spun > 0) e.spun -= dt;
+  // the pool
+  if (e.sub > 0.3 && e.d.creature) {
+    if (e.type === "cat" && Math.random() < dt * 1.5) emote(e, "😾");
+    else if ((e.type === "frog" || e.type === "penguin" || e.type === "dog") && Math.random() < dt * 0.3) emote(e, pick(["😆", "🏊", "💦"]));
+    else if (e.type === "person" && Math.random() < dt * 0.15) emote(e, pick(["🏊", "😆", "😨"]));
+  }
+  if (e.type === "snow" && world.water > 0.5 && e.y + e.r >= view.ground - world.water) e.dead = true;
   if (e.impact) e.impactSeen = Math.max(e.impactSeen ?? 0, e.impact);
   // the mushroom (or the wizard) wears off
   if (e.giant > 0) {
@@ -654,7 +708,12 @@ export const TOOLS = {
   lightning: (x) => strike(x),
   eraser(x, y) {
     const e = entityNear(x, y, 6);
-    if (e) { e.dead = true; poofAt(e); }
+    if (e) { e.dead = true; poofAt(e); return; }
+    if (world.water > 0 && y > view.ground - world.water - 6) {
+      // the sponge soaks up the pool
+      world.water = Math.max(0, world.water - 0.6);
+      droplets(x, y, 1, ["#9bdcff", "#d8f4ff"]);
+    }
   },
   heal(x, y) {
     for (const o of world.ents) {

@@ -1,5 +1,7 @@
 # emojibox · 이모지 샌드박스
 
+![emojibox](docs/thumbnail.gif)
+
 이모지를 꺼내서 놓으면 저마다 성격대로 움직이고 서로 부딪치는 샌드박스 게임.
 
 - **바로 플레이**: https://lhc6835-hue.github.io/ES/

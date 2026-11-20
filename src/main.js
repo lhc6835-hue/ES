@@ -748,4 +748,4 @@ async function boot() {
 boot();
 
 // for automated checks
-window.__sandbox = { world, spawn, state, select, strike, view, app, play, doSave, goMaps, openForm, loadMaps, tilt, openSettings };
+window.__sandbox = { world, spawn, state, select, strike, view, app, play, doSave, goMaps, openForm, loadMaps, tilt, openSettings, drawLogo };

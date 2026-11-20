@@ -248,7 +248,7 @@ export function explode(b, R = 60) {
   const x = b.x, y = b.y;
   sfx(R > 70 ? "boom" : "explode", { x, gap: 0.03 });
   HOOK.explode?.(x, y, R);
-  fx(FX.smallExplosion, { x: Math.round(x), y: Math.round(Math.min(view.ground, y + b.r)), size: 0.9, light: 1 });
+  fx(FX.smallExplosion, { x: Math.round(x), y: Math.round(Math.min(view.ground, y + b.r)), size: 0.9, light: 1, life: 1.6 });
   world.shake = Math.max(world.shake, 9);
   world.flash = 0.08;
   world.hitstop = 0.05;

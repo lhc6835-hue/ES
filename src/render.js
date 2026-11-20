@@ -205,9 +205,18 @@ let seedN = 1;
  * Play an effect. follow: a function returning {x, y, flip} each frame (or null when the effect should end),
  * so status effects ride on the creature they belong to.
  */
+// how many effects may run at once: past this, new ones are skipped (an explosion chain stays smooth)
+const MAX_LIVE = 32;
+const NONE = { options: {}, update() {}, draw() {}, stop() {}, done: () => true };
+/**
+ * o.life: cut the effect short after this many seconds (it fades out), for effects whose long tail of smoke
+ * costs more than it shows.
+ */
 export function fx(mod, o = {}, follow = null) {
+  if (live.length >= MAX_LIVE && !follow) return NONE;
   const inst = createFx(mod, { seed: (seedN = (seedN * 48271) % 2147483647) % 100000, ...o });
   inst.follow = follow;
+  inst.lifeMax = o.life;
   live.push(inst);
   return inst;
 }
@@ -223,6 +232,7 @@ export function updateFx(dt) {
       else { f.options.x = Math.round(p.x); f.options.y = Math.round(p.y); if (p.flip !== undefined) f.options.flip = p.flip; }
     }
     f.update(Math.min(dt, 0.05));
+    if (f.lifeMax && f.t > f.lifeMax) f.stop();
     if (f.done()) live.splice(i, 1);
   }
 }
